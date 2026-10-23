@@ -1,0 +1,17 @@
+{
+  "name": "trust-education-erp-monorepo",
+  "version": "1.0.0",
+  "description": "Integrated Trust Education ERP (School + Hotel Management College)",
+  "scripts": {
+    "start": "npx --yes concurrently -n \"API,WEB\" -c \"bgOrange.bold,bgCyan.bold\" \"npm start --prefix api\" \"npm start --prefix web\"",
+    "start:api": "npm start --prefix api",
+    "start:web": "npm start --prefix web",
+    "start:mobile": "npm start --prefix mobile",
+    "test": "npm test --prefix api",
+    "test:api": "npm test --prefix api",
+    "test:coverage": "npm run test:coverage --prefix api"
+  },
+  "keywords": ["education", "erp", "school", "hotel-management", "college"],
+  "author": "",
+  "license": "ISC"
+}

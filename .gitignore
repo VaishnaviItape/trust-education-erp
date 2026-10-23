@@ -1,0 +1,72 @@
+# ==============================================================================
+# Trust Education ERP - Git Ignore Configuration
+# ==============================================================================
+
+# Node Dependencies (Prevents publishing node_modules to GitHub)
+node_modules/
+*/node_modules/
+**/node_modules/
+.pnp/
+.pnp.js
+
+# Production Build Outputs
+dist/
+*/dist/
+**/dist/
+build/
+*/build/
+**/build/
+out/
+*.tsbuildinfo
+
+# Environment & Secret Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+!*.env.example
+!.env.example
+
+# Runtime Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor & OS Metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Test & Coverage Reports
+coverage/
+.nyc_output/
+*.lcov
+
+# Caches & Temporary Files
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+tmp/
+temp/
+
+# SQLite Databases & Local Journal/WAL files
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db-journal
+*.db-wal
+*.db-shm

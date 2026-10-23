@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # 1. Primary Relational Storage (PostgreSQL 16)
+  postgres:
+    image: postgres:16-alpine
+    container_name: trustedu-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trustedu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trustedu_secret_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-trustedu_erp}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trustedu} -d ${POSTGRES_DB:-trustedu_erp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. In-Memory Cache & Message Broker (Redis 7)
+  redis:
+    image: redis:7-alpine
+    container_name: trustedu-redis
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 3. S3-Compatible Object Storage (MinIO)
+  minio:
+    image: minio/minio:latest
+    container_name: trustedu-minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-trustedu_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-trustedu_minio_secret_2026}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # MinIO Web Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # 4. TrustEdu Core REST API Service (.NET / Node.js Clean Architecture)
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: trustedu-core-api
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-trustedu}:${POSTGRES_PASSWORD:-trustedu_secret_2026}@postgres:5432/${POSTGRES_DB:-trustedu_erp}?schema=public
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-trustedu_minio_admin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-trustedu_minio_secret_2026}
+      S3_BUCKET: trustedu-vault
+      JWT_SECRET: ${JWT_SECRET:-trustedu_super_jwt_secret_key_2026}
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/api/docs.json"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # 5. Asynchronous Background Task Worker (OMR CV Batches, Payroll, PDFs)
+  worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: trustedu-async-worker
+    restart: always
+    command: ["npx", "tsx", "src/worker.ts"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-trustedu}:${POSTGRES_PASSWORD:-trustedu_secret_2026}@postgres:5432/${POSTGRES_DB:-trustedu_erp}?schema=public
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # 6. Web Portal (React 19 / Vite + Tailwind CSS + Lucide Icons)
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: trustedu-web-portal
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  # 7. Biometric Hardware Edge Punch Ingestion Emulator
+  edge-biometric-agent:
+    image: alpine:latest
+    container_name: trustedu-edge-agent
+    restart: always
+    command: >
+      sh -c "while true; do
+        wget -qO- --post-data='{\"deviceId\":\"bio-edge-01\",\"biometricUserId\":\"EMP-1002\",\"type\":\"CHECK_IN\"}' --header='Content-Type:application/json' http://api:5000/api/biometrics/punches/ingest || true;
+        sleep 30;
+      done"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local

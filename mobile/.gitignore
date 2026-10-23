@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Expo & React Native builds
+.expo/
+web-build/
+dist/
+build/
+*.tsbuildinfo
+
+# Logs & Cache
+*.log
+.cache/
+.eslintcache

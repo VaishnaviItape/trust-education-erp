@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --erp-font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --erp-font-size: 14px;
+  }
+  html {
+    font-size: var(--erp-font-size);
+    transition: font-size 0.15s ease-out;
+  }
+  body, button, input, select, textarea {
+    font-family: var(--erp-font-family);
+  }
+  body {
+    @apply antialiased text-slate-800 bg-slate-50 selection:bg-orange-500 selection:text-white transition-colors duration-200;
+  }
+  .dark body,
+  body.dark,
+  .dark {
+    color-scheme: dark;
+  }
+}
+
+/* Completely Hide Scrollbars Everywhere (Tables, Sidebar, Workspace) while preserving full smooth scrolling */
+*,
+*::before,
+*::after,
+html,
+body,
+div,
+main,
+aside,
+section,
+ul,
+table,
+tbody,
+.erp-table-scroll {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+div::-webkit-scrollbar,
+main::-webkit-scrollbar,
+aside::-webkit-scrollbar,
+section::-webkit-scrollbar,
+ul::-webkit-scrollbar,
+table::-webkit-scrollbar,
+tbody::-webkit-scrollbar,
+.erp-table-scroll::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* ERP Table Scroll Container - Viewport-bounded height with seamless invisible scrolling */
+.erp-table-scroll {
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  max-height: calc(100vh - 270px);
+  min-height: 260px;
+  position: relative;
+  scroll-behavior: smooth;
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+@media (max-width: 768px) {
+  .erp-table-scroll {
+    max-height: 65vh;
+    min-height: 220px;
+  }
+}
+
+/* Dark Mode Global Component Overrides for Instant Contrast */
+.dark .bg-white {
+  background-color: #0f172a !important;
+  color: #f8fafc;
+}
+.dark .bg-slate-50,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/70,
+.dark .bg-slate-50\/80 {
+  background-color: #020617 !important;
+  color: #f1f5f9;
+}
+.dark .bg-slate-100 {
+  background-color: #1e293b !important;
+  color: #f8fafc;
+}
+.dark .text-slate-900 {
+  color: #f8fafc !important;
+}
+.dark .text-slate-800 {
+  color: #f1f5f9 !important;
+}
+.dark .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+.dark .text-slate-600 {
+  color: #94a3b8 !important;
+}
+.dark .border-slate-200,
+.dark .border-slate-200\/80,
+.dark .border-slate-100,
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b !important;
+}
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-50\/80:hover {
+  background-color: #1e293b !important;
+}
+.dark input,
+.dark select {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+.dark input::placeholder {
+  color: #64748b !important;
+}
+
+/* Print document and receipt styling */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #printable-receipt, #printable-receipt *,
+  #printable-certificate, #printable-certificate * {
+    visibility: visible;
+  }
+  #printable-receipt, #printable-certificate {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

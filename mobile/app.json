@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Trust Education ERP",
+    "slug": "trust-education-erp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#EA580C",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#EA580C"
+      },
+      "package": "com.saraswatitrust.erp"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.saraswatitrust.erp"
+    }
+  }
+}

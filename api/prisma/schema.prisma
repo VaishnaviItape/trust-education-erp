@@ -1,0 +1,67 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Trust {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  branches  Branch[]
+  users     User[]
+  createdAt DateTime @default(now())
+}
+
+model Branch {
+  id         String     @id @default(uuid())
+  trustId    String
+  trust      Trust      @relation(fields: [trustId], references: [id])
+  name       String
+  branchType String     // "SCHOOL" or "COLLEGE"
+  code       String     @unique
+  students   Student[]
+  users      User[]
+  createdAt  DateTime   @default(now())
+}
+
+enum Role {
+  SUPERADMIN
+  BRANCH_ADMIN
+  ACCOUNTANT
+  TEACHER
+  PARENT
+  STUDENT
+  DRIVER
+}
+
+model User {
+  id        String   @id @default(uuid())
+  trustId   String
+  trust     Trust    @relation(fields: [trustId], references: [id])
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  name      String
+  email     String?  @unique
+  phone     String?  @unique
+  role      Role     @default(TEACHER)
+  createdAt DateTime @default(now())
+}
+
+model Student {
+  id              String   @id @default(uuid())
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id])
+  admissionNo     String   @unique
+  rollNo          String?
+  name            String
+  gender          String
+  gradeOrSemester String   // "Class 7-A" or "B.Sc H&HA Sem 3"
+  category        String?
+  parentPhone     String?
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+}
