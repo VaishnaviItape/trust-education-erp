@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Student, KitchenPracticalBatch, HotelInternship, ChefKitInventory } from '../types';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
 
 interface HotelMgmtModuleProps {
   students: Student[];
@@ -63,6 +64,14 @@ export const HotelMgmtModule: React.FC<HotelMgmtModuleProps> = ({
     defaultKey: null,
     defaultDirection: 'asc',
   });
+
+  const {
+    currentPage: collegePage,
+    setCurrentPage: setCollegePage,
+    pageSize: collegePageSize,
+    setPageSize: setCollegePageSize,
+    paginatedItems: paginatedCollegeStudents,
+  } = usePagination(sortedCollegeStudents, 10);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -284,64 +293,78 @@ export const HotelMgmtModule: React.FC<HotelMgmtModuleProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {sortedCollegeStudents.map((stu, index) => (
-                    <tr key={stu.id} className="hover:bg-amber-50/20 transition-colors">
-                      <td className="py-3.5 px-4 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900">{stu.name}</div>
-                        <div className="text-[11px] text-slate-400 font-mono">
-                          {stu.admissionNo} &bull; {stu.rollNo}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded font-semibold text-slate-800">
-                          {stu.gradeOrSemester}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-semibold text-orange-700">
-                          {stu.hotelSpecialization || 'General Hospitality'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900">
-                          ₹ {stu.feePaid.toLocaleString()} / ₹ {stu.feeTotal.toLocaleString()}
-                        </div>
-                        {stu.feePending > 0 ? (
-                          <div className="text-[11px] text-rose-600 font-semibold">
-                            Due: ₹ {stu.feePending.toLocaleString()}
+                  {paginatedCollegeStudents.map((stu, index) => {
+                    const globalIndex = (collegePage - 1) * collegePageSize + index + 1;
+                    return (
+                      <tr key={stu.id} className="hover:bg-amber-50/20 transition-colors">
+                        <td className="py-3.5 px-4 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900">{stu.name}</div>
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            {stu.admissionNo} &bull; {stu.rollNo}
                           </div>
-                        ) : (
-                          <div className="text-[11px] text-emerald-600 font-semibold">
-                            Fully Cleared
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="bg-slate-100 px-2 py-0.5 rounded font-semibold text-slate-800">
+                            {stu.gradeOrSemester}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-semibold text-orange-700">
+                            {stu.hotelSpecialization || 'General Hospitality'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900">
+                            ₹ {stu.feePaid.toLocaleString()} / ₹ {stu.feeTotal.toLocaleString()}
                           </div>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-800">
-                        {stu.attendancePercent}%
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                          {stu.kycStatus}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        {onOpenProgression && (
-                          <button
-                            onClick={onOpenProgression}
-                            title="Advance to next semester with pending fee carry forward"
-                            className="bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-700 font-bold px-2.5 py-1.5 rounded-lg border border-amber-200 transition-all text-[11px] inline-flex items-center gap-1"
-                          >
-                            <TrendingUp className="w-3 h-3" />
-                            Carry Fwd
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                          {stu.feePending > 0 ? (
+                            <div className="text-[11px] text-rose-600 font-semibold">
+                              Due: ₹ {stu.feePending.toLocaleString()}
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-emerald-600 font-semibold">
+                              Fully Cleared
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-800">
+                          {stu.attendancePercent}%
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                            {stu.kycStatus}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {onOpenProgression && (
+                            <button
+                              onClick={onOpenProgression}
+                              title="Advance to next semester with pending fee carry forward"
+                              className="bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-700 font-bold px-2.5 py-1.5 rounded-lg border border-amber-200 transition-all text-[11px] inline-flex items-center gap-1"
+                            >
+                              <TrendingUp className="w-3 h-3" />
+                              Carry Fwd
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+
+            {/* College Students Table Pagination Controls */}
+            <TablePagination
+              currentPage={collegePage}
+              totalItems={sortedCollegeStudents.length}
+              pageSize={collegePageSize}
+              pageSizeOptions={[5, 10, 25, 50]}
+              onPageChange={setCollegePage}
+              onPageSizeChange={setCollegePageSize}
+              itemName="college students"
+            />
           </div>
         </div>
       )}

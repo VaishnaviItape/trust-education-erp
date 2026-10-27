@@ -125,9 +125,38 @@ export class FontThemeService {
     return localStorage.getItem(this.SIZE_KEY) || 'standard';
   }
 
+  public static getScalePercent(): number {
+    const sizeId = this.getFontSize();
+    const preset = AVAILABLE_FONT_SIZES.find((s) => s.id === sizeId);
+    if (preset) return preset.scalePercent;
+    const num = parseInt(sizeId, 10);
+    return !isNaN(num) ? num : 100;
+  }
+
   public static applySettings(fontId: string, sizeId: string): { font: FontOption; size: FontSizeOption } {
     const font = AVAILABLE_FONTS.find((f) => f.id === fontId) || AVAILABLE_FONTS[0];
-    const size = AVAILABLE_FONT_SIZES.find((s) => s.id === sizeId) || AVAILABLE_FONT_SIZES[1];
+    let size = AVAILABLE_FONT_SIZES.find((s) => s.id === sizeId);
+
+    if (!size) {
+      // Support direct typed percentage (e.g. "135")
+      const num = parseInt(sizeId, 10);
+      if (!isNaN(num) && num >= 70 && num <= 180) {
+        const matchingPreset = AVAILABLE_FONT_SIZES.find((s) => s.scalePercent === num);
+        if (matchingPreset) {
+          size = matchingPreset;
+        } else {
+          size = {
+            id: String(num),
+            label: `Custom (${num}%)`,
+            sizePx: parseFloat(((14 * num) / 100).toFixed(1)),
+            scalePercent: num,
+            description: `Custom scaling set to ${num}%`,
+          };
+        }
+      } else {
+        size = AVAILABLE_FONT_SIZES[1];
+      }
+    }
 
     if (typeof document !== 'undefined') {
       document.documentElement.style.setProperty('--erp-font-family', font.family);
@@ -138,6 +167,12 @@ export class FontThemeService {
     }
 
     return { font, size };
+  }
+
+  public static applyCustomPercent(fontId: string, percent: number): { font: FontOption; size: FontSizeOption } {
+    const clamped = Math.max(75, Math.min(160, Math.round(percent)));
+    const matchingPreset = AVAILABLE_FONT_SIZES.find((s) => s.scalePercent === clamped);
+    return this.applySettings(fontId, matchingPreset ? matchingPreset.id : String(clamped));
   }
 
   public static init() {

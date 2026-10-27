@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+
 import {
-  GraduationCap,
   LayoutDashboard,
   Users,
   CreditCard,
@@ -9,8 +9,6 @@ import {
   FileQuestion,
   Globe,
   LogOut,
-  Shield,
-  School,
   UtensilsCrossed,
   TrendingUp,
   FileText,
@@ -19,18 +17,27 @@ import {
   Briefcase,
   Calendar,
   Package,
-  MessageSquare,
   Award,
   Layers,
   Sliders,
   ChevronDown,
   ChevronUp,
   Type,
+  Sparkles,
+  Compass,
+  IdCard,
+  X,
 } from 'lucide-react';
+
 import { UserProfile } from './LoginPage';
 import { FeatureFlagService } from '../utils/featureFlags';
 import { FontSettingsModal } from './FontSettingsModal';
+import { TrustLogo } from './TrustLogo';
 import { FontThemeService } from '../utils/fontTheme';
+
+/* =========================================================
+   DASHBOARD TABS
+========================================================= */
 
 export type DashboardTab =
   | 'OVERVIEW'
@@ -49,7 +56,14 @@ export type DashboardTab =
   | 'MASTERS'
   | 'FEATURE_FLAGS'
   | 'BUS'
-  | 'ENQUIRIES';
+  | 'TRIPS'
+  | 'ENQUIRIES'
+  | 'ID_CARDS'
+  | 'REPORTS';
+
+/* =========================================================
+   TAB ROUTES
+========================================================= */
 
 export const TAB_ROUTE_MAP: Record<DashboardTab, string> = {
   OVERVIEW: '/dashboard/overview',
@@ -60,6 +74,7 @@ export const TAB_ROUTE_MAP: Record<DashboardTab, string> = {
   HR_PAYROLL: '/dashboard/hr-payroll',
   EXAMS_OMR: '/dashboard/exams',
   CERTIFICATES: '/dashboard/certificates',
+  ID_CARDS: '/dashboard/id-cards',
   BIOMETRICS: '/dashboard/biometrics',
   TIMETABLE: '/dashboard/timetable',
   ACADEMIC: '/dashboard/academic',
@@ -68,11 +83,28 @@ export const TAB_ROUTE_MAP: Record<DashboardTab, string> = {
   AUXILIARY: '/dashboard/auxiliary',
   COMMUNICATION: '/dashboard/communication',
   BUS: '/dashboard/bus',
+  TRIPS: '/dashboard/trips',
   ENQUIRIES: '/dashboard/enquiries',
+  REPORTS: '/dashboard/reports',
 };
 
-export const getTabFromPathname = (pathname: string): DashboardTab | null => {
-  const clean = pathname.toLowerCase().replace(/\/+$/, '') || '/';
+/* =========================================================
+   GET TAB FROM URL
+========================================================= */
+
+export const getTabFromPathname = (
+  pathname: string
+): DashboardTab | null => {
+  const clean =
+    pathname.toLowerCase().replace(/\/+$/, '') || '/';
+
+  if (
+    clean === '/dashboard/reports' ||
+    clean === '/reports' ||
+    clean === '/analytics'
+  ) {
+    return 'REPORTS';
+  }
 
   if (
     clean === '/dashboard/overview' ||
@@ -82,64 +114,165 @@ export const getTabFromPathname = (pathname: string): DashboardTab | null => {
   ) {
     return 'OVERVIEW';
   }
-  if (clean === '/dashboard/students' || clean === '/students') return 'STUDENTS';
-  if (clean === '/dashboard/progression' || clean === '/progression') return 'PROGRESSION';
-  if (clean === '/dashboard/accounting' || clean === '/accounting') return 'ACCOUNTING';
-  if (clean === '/dashboard/fees' || clean === '/fees') return 'FEES';
+
+  if (
+    clean === '/dashboard/students' ||
+    clean === '/students'
+  ) {
+    return 'STUDENTS';
+  }
+
+  if (
+    clean === '/dashboard/progression' ||
+    clean === '/progression'
+  ) {
+    return 'PROGRESSION';
+  }
+
+  if (
+    clean === '/dashboard/accounting' ||
+    clean === '/accounting'
+  ) {
+    return 'ACCOUNTING';
+  }
+
+  if (
+    clean === '/dashboard/fees' ||
+    clean === '/fees'
+  ) {
+    return 'FEES';
+  }
+
   if (
     clean === '/dashboard/hr-payroll' ||
     clean === '/hr-payroll' ||
     clean === '/payroll' ||
     clean === '/hr'
-  )
+  ) {
     return 'HR_PAYROLL';
-  if (clean === '/dashboard/exams' || clean === '/exams' || clean === '/omr') return 'EXAMS_OMR';
+  }
+
+  if (
+    clean === '/dashboard/exams' ||
+    clean === '/exams' ||
+    clean === '/omr'
+  ) {
+    return 'EXAMS_OMR';
+  }
+
   if (
     clean === '/dashboard/certificates' ||
     clean === '/certificates' ||
     clean === '/documents' ||
     clean === '/lc'
-  )
+  ) {
     return 'CERTIFICATES';
-  if (clean === '/dashboard/biometrics' || clean === '/biometrics' || clean === '/attendance')
+  }
+
+  if (
+    clean === '/dashboard/id-cards' ||
+    clean === '/id-cards' ||
+    clean === '/idcards' ||
+    clean === '/cards' ||
+    clean === '/id-card'
+  ) {
+    return 'ID_CARDS';
+  }
+
+  if (
+    clean === '/dashboard/biometrics' ||
+    clean === '/biometrics' ||
+    clean === '/attendance'
+  ) {
     return 'BIOMETRICS';
-  if (clean === '/dashboard/timetable' || clean === '/timetable') return 'TIMETABLE';
-  if (clean === '/dashboard/academic' || clean === '/academic' || clean === '/kitchen-labs')
+  }
+
+  if (
+    clean === '/dashboard/timetable' ||
+    clean === '/timetable'
+  ) {
+    return 'TIMETABLE';
+  }
+
+  if (
+    clean === '/dashboard/academic' ||
+    clean === '/academic' ||
+    clean === '/kitchen-labs'
+  ) {
     return 'ACADEMIC';
+  }
+
   if (
     clean === '/dashboard/masters' ||
     clean === '/masters' ||
     clean === '/admin/masters' ||
     clean === '/academic-masters'
-  )
+  ) {
     return 'MASTERS';
+  }
+
   if (
     clean === '/dashboard/features' ||
     clean === '/features' ||
     clean === '/modules' ||
     clean === '/dashboard/modules'
-  )
+  ) {
     return 'FEATURE_FLAGS';
+  }
+
   if (
     clean === '/dashboard/auxiliary' ||
     clean === '/auxiliary' ||
     clean === '/hostel' ||
     clean === '/library'
-  )
+  ) {
     return 'AUXILIARY';
+  }
+
   if (
     clean === '/dashboard/communication' ||
     clean === '/communication' ||
     clean === '/notices' ||
-    clean === '/whatsapp'
-  )
+    clean === '/whatsapp' ||
+    clean === '/dashboard/parent-meetings' ||
+    clean === '/parent-meetings' ||
+    clean === '/ptm'
+  ) {
     return 'COMMUNICATION';
-  if (clean === '/dashboard/bus' || clean === '/bus' || clean === '/fleet') return 'BUS';
-  if (clean === '/dashboard/enquiries' || clean === '/enquiries' || clean === '/inquiries')
-    return 'ENQUIRIES';
+  }
 
-  for (const [tab, route] of Object.entries(TAB_ROUTE_MAP) as [DashboardTab, string][]) {
-    if (clean === route || clean.startsWith(`${route}/`)) {
+  if (
+    clean === '/dashboard/bus' ||
+    clean === '/bus' ||
+    clean === '/fleet'
+  ) {
+    return 'BUS';
+  }
+
+  if (
+    clean === '/dashboard/trips' ||
+    clean === '/trips' ||
+    clean === '/tours' ||
+    clean === '/excursions'
+  ) {
+    return 'TRIPS';
+  }
+
+  if (
+    clean === '/dashboard/enquiries' ||
+    clean === '/enquiries' ||
+    clean === '/inquiries'
+  ) {
+    return 'ENQUIRIES';
+  }
+
+  for (const [tab, route] of Object.entries(
+    TAB_ROUTE_MAP
+  ) as [DashboardTab, string][]) {
+    if (
+      clean === route ||
+      clean.startsWith(`${route}/`)
+    ) {
       return tab;
     }
   }
@@ -147,13 +280,24 @@ export const getTabFromPathname = (pathname: string): DashboardTab | null => {
   return null;
 };
 
+/* =========================================================
+   SIDEBAR PROPS
+========================================================= */
+
 interface SidebarProps {
   activeTab: DashboardTab;
   onSelectTab: (tab: DashboardTab) => void;
   currentUser: UserProfile;
   onLogout: () => void;
   onGoToWebsite: () => void;
+  trustName?: string;
+  newEnquiriesCount?: number;
+  onCloseMobile?: () => void;
 }
+
+/* =========================================================
+   SIDEBAR COMPONENT
+========================================================= */
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
@@ -161,32 +305,85 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentUser,
   onLogout,
   onGoToWebsite,
+  trustName = 'Zep Foundation',
+  newEnquiriesCount,
+  onCloseMobile,
 }) => {
-  const [showFontModal, setShowFontModal] = useState(false);
-  const [currentFontId, setCurrentFontId] = useState(() => FontThemeService.getFontFamily());
-  const [currentSizeId, setCurrentSizeId] = useState(() => FontThemeService.getFontSize());
+  /* ---------------------------------------------------------
+     FONT SETTINGS
+  --------------------------------------------------------- */
 
-  const isSuperadmin = currentUser.role === 'SUPERADMIN';
-  const isSchoolAdmin = currentUser.role === 'BRANCH_ADMIN_SCHOOL';
-  const isCollegeAdmin = currentUser.role === 'BRANCH_ADMIN_COLLEGE';
-  const isTeacher = currentUser.role === 'TEACHER';
-  const isAccountant = currentUser.role === 'ACCOUNTANT';
-  const isStudent = currentUser.role === 'STUDENT';
-  const isLeadership = isSuperadmin || isSchoolAdmin || isCollegeAdmin;
+  const [showFontModal, setShowFontModal] =
+    useState(false);
+
+  const [currentFontId, setCurrentFontId] =
+    useState(() =>
+      FontThemeService.getFontFamily()
+    );
+
+  const [currentSizeId, setCurrentSizeId] =
+    useState(() =>
+      FontThemeService.getFontSize()
+    );
+
+  /* ---------------------------------------------------------
+     USER ROLES
+  --------------------------------------------------------- */
+
+  const isSuperadmin =
+    currentUser.role === 'SUPERADMIN';
+
+  const isSchoolAdmin =
+    currentUser.role === 'BRANCH_ADMIN_SCHOOL';
+
+  const isCollegeAdmin =
+    currentUser.role === 'BRANCH_ADMIN_COLLEGE';
+
+  const isTeacher =
+    currentUser.role === 'TEACHER';
+
+  const isAccountant =
+    currentUser.role === 'ACCOUNTANT';
+
+  const isStudent =
+    currentUser.role === 'STUDENT';
+
+  const isLeadership =
+    isSuperadmin ||
+    isSchoolAdmin ||
+    isCollegeAdmin;
+
+  /* ---------------------------------------------------------
+     MORE MODULE STATE
+  --------------------------------------------------------- */
 
   const isMoreTab =
     activeTab === 'PROGRESSION' ||
     activeTab === 'ACCOUNTING' ||
-    activeTab === 'AUXILIARY' ||
-    activeTab === 'ENQUIRIES';
+    activeTab === 'AUXILIARY';
 
-  const [isMoreOpen, setIsMoreOpen] = useState(isMoreTab);
-  const [featureFlags, setFeatureFlags] = useState(() => FeatureFlagService.getFlags());
+  const [isMoreOpen, setIsMoreOpen] =
+    useState(isMoreTab);
+
+  /* ---------------------------------------------------------
+     FEATURE FLAGS
+  --------------------------------------------------------- */
+
+  const [featureFlags, setFeatureFlags] =
+    useState(() =>
+      FeatureFlagService.getFlags()
+    );
 
   useEffect(() => {
-    const unsub = FeatureFlagService.subscribe((updatedFlags) => {
-      setFeatureFlags({ ...updatedFlags });
-    });
+    const unsub =
+      FeatureFlagService.subscribe(
+        (updatedFlags) => {
+          setFeatureFlags({
+            ...updatedFlags,
+          });
+        }
+      );
+
     return () => unsub();
   }, []);
 
@@ -196,313 +393,1016 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [isMoreTab]);
 
+  /* =========================================================
+     NAV ITEM TYPE
+  ========================================================= */
+
   interface NavItem {
     id: DashboardTab;
     label: string;
     icon: React.ReactNode;
     show: boolean;
-    group: 'MAIN' | 'ACADEMICS' | 'MORE';
+    group:
+      | 'SYSTEM'
+      | 'MAIN'
+      | 'OPERATIONS'
+      | 'MORE';
+    badge?: string | number;
   }
 
+  /* =========================================================
+     NAVIGATION ITEMS
+  ========================================================= */
+
   const navItems: NavItem[] = [
-    // 1. Primary Essential Menu
+    /* =====================================================
+       1. SYSTEM CONFIGURATION
+    ===================================================== */
+
+    {
+      id: 'MASTERS',
+      label: 'System Masters',
+      badge: '27 Masters',
+      icon: (
+        <Layers className="w-4 h-4" />
+      ),
+      show:
+        isLeadership ||
+        isTeacher ||
+        isAccountant,
+      group: 'SYSTEM',
+    },
+
+    /* =====================================================
+       2. MAIN
+    ===================================================== */
+
     {
       id: 'OVERVIEW',
       label: 'Overview',
-      icon: <LayoutDashboard className="w-4 h-4" />,
+      icon: (
+        <LayoutDashboard className="w-4 h-4" />
+      ),
       show: isLeadership,
       group: 'MAIN',
     },
+
     {
       id: 'STUDENTS',
       label: 'Students',
-      icon: <Users className="w-4 h-4" />,
-      show: isLeadership || isTeacher || isAccountant,
-      group: 'MAIN',
-    },
-    {
-      id: 'CERTIFICATES',
-      label: 'Documents & LC',
-      icon: <Award className="w-4 h-4" />,
-      show: isLeadership || isTeacher || isAccountant,
-      group: 'MAIN',
-    },
-    {
-      id: 'FEES',
-      label: 'Fees & Ledger',
-      icon: <CreditCard className="w-4 h-4" />,
-      show: isLeadership || isAccountant,
+      icon: (
+        <Users className="w-4 h-4" />
+      ),
+      show:
+        isLeadership ||
+        isTeacher ||
+        isAccountant,
       group: 'MAIN',
     },
 
-    // 2. Daily Academic & Campus Operations
+    /* =====================================================
+       3. DAILY OPERATIONS
+    ===================================================== */
+
     {
       id: 'BIOMETRICS',
       label: 'Attendance',
-      icon: <Fingerprint className="w-4 h-4" />,
-      show: isLeadership || isTeacher,
-      group: 'ACADEMICS',
+      icon: (
+        <Fingerprint className="w-4 h-4" />
+      ),
+      show:
+        isLeadership ||
+        isTeacher,
+      group: 'OPERATIONS',
     },
+
     {
       id: 'TIMETABLE',
       label: 'Timetable',
-      icon: <Calendar className="w-4 h-4" />,
-      show: isLeadership || isTeacher || isStudent,
-      group: 'ACADEMICS',
+      icon: (
+        <Calendar className="w-4 h-4" />
+      ),
+      show:
+        isLeadership ||
+        isTeacher ||
+        isStudent,
+      group: 'OPERATIONS',
     },
-    {
-      id: 'EXAMS_OMR',
-      label: 'Exams & OMR',
-      icon: <Scan className="w-4 h-4" />,
-      show: isLeadership || isTeacher,
-      group: 'ACADEMICS',
-    },
+
     {
       id: 'ACADEMIC',
+
       label:
-        isCollegeAdmin || currentUser.branchId === 'branch-hm-01'
+        isCollegeAdmin ||
+        currentUser.branchId ===
+          'branch-hm-01'
           ? 'Kitchen Labs'
           : 'Academics',
+
       icon:
-        isCollegeAdmin || currentUser.branchId === 'branch-hm-01' ? (
+        isCollegeAdmin ||
+        currentUser.branchId ===
+          'branch-hm-01' ? (
           <UtensilsCrossed className="w-4 h-4" />
         ) : (
           <BookOpen className="w-4 h-4" />
         ),
-      show: isLeadership || isTeacher || isStudent,
-      group: 'ACADEMICS',
+
+      show:
+        isLeadership ||
+        isTeacher ||
+        isStudent,
+
+      group: 'OPERATIONS',
     },
+
     {
-      id: 'MASTERS',
-      label: 'Academic Masters',
-      icon: <Layers className="w-4 h-4" />,
-      show: isLeadership || isTeacher || isAccountant,
-      group: 'ACADEMICS',
+      id: 'EXAMS_OMR',
+      label: 'Exams & OMR',
+      icon: (
+        <Scan className="w-4 h-4" />
+      ),
+      show:
+        isLeadership ||
+        isTeacher,
+      group: 'OPERATIONS',
     },
+
+    {
+      id: 'FEES',
+      label: 'Fees & Ledger',
+      icon: (
+        <CreditCard className="w-4 h-4" />
+      ),
+      show:
+        isLeadership ||
+        isAccountant,
+      group: 'OPERATIONS',
+    },
+
+    {
+      id: 'CERTIFICATES',
+      label: 'Documents & LC',
+      icon: (
+        <Award className="w-4 h-4" />
+      ),
+      show:
+        isLeadership ||
+        isTeacher ||
+        isAccountant,
+      group: 'OPERATIONS',
+    },
+
+    {
+      id: 'ID_CARDS',
+      label: 'ID Cards',
+      icon: (
+        <IdCard className="w-4 h-4" />
+      ),
+      show:
+        isLeadership ||
+        isTeacher ||
+        isAccountant,
+      group: 'OPERATIONS',
+    },
+
     {
       id: 'HR_PAYROLL',
       label: 'Staff & Payroll',
-      icon: <Briefcase className="w-4 h-4" />,
-      show: isLeadership || isAccountant,
-      group: 'ACADEMICS',
+      icon: (
+        <Briefcase className="w-4 h-4" />
+      ),
+      show:
+        isLeadership ||
+        isAccountant,
+      group: 'OPERATIONS',
     },
+
     {
       id: 'COMMUNICATION',
-      label: 'Notice Board',
-      icon: <MessageSquare className="w-4 h-4" />,
+      label: 'Events & Notices',
+      icon: (
+        <Sparkles className="w-4 h-4" />
+      ),
       show: true,
-      group: 'ACADEMICS',
+      group: 'OPERATIONS',
     },
+
     {
       id: 'BUS',
       label: 'School Bus',
-      icon: <Bus className="w-4 h-4" />,
-      show: isSuperadmin || isSchoolAdmin,
-      group: 'ACADEMICS',
+      icon: (
+        <Bus className="w-4 h-4" />
+      ),
+      show:
+        isSuperadmin ||
+        isSchoolAdmin,
+      group: 'OPERATIONS',
     },
 
-    // 3. Secondary / Periodic Tools (Cleanly grouped under More)
     {
-      id: 'PROGRESSION',
-      label: 'Annual Progression',
-      icon: <TrendingUp className="w-4 h-4" />,
-      show: isLeadership,
-      group: 'MORE',
+      id: 'TRIPS',
+      label: 'Trips & Tours',
+      icon: (
+        <Compass className="w-4 h-4" />
+      ),
+      show: true,
+      group: 'OPERATIONS',
     },
+
     {
-      id: 'ACCOUNTING',
-      label: 'Trust Accounting',
-      icon: <CreditCard className="w-4 h-4" />,
-      show: isSuperadmin || isAccountant,
-      group: 'MORE',
+      id: 'REPORTS',
+      label: 'Reports Center',
+      icon: (
+        <FileText className="w-4 h-4" />
+      ),
+      show:
+        isLeadership ||
+        isAccountant,
+      group: 'OPERATIONS',
+      badge: 'Audit',
     },
-    {
-      id: 'AUXILIARY',
-      label: 'Campus Auxiliary',
-      icon: <Package className="w-4 h-4" />,
-      show: isLeadership,
-      group: 'MORE',
-    },
+
     {
       id: 'ENQUIRIES',
       label: 'Admission Enquiries',
-      icon: <FileQuestion className="w-4 h-4" />,
-      show: isSuperadmin || isSchoolAdmin,
+      icon: (
+        <FileQuestion className="w-4 h-4" />
+      ),
+      show:
+        isSuperadmin ||
+        isSchoolAdmin,
+      group: 'OPERATIONS',
+
+      badge:
+        newEnquiriesCount &&
+        newEnquiriesCount > 0
+          ? `${newEnquiriesCount} New`
+          : undefined,
+    },
+
+    /* =====================================================
+       4. MORE MODULES
+    ===================================================== */
+
+    {
+      id: 'PROGRESSION',
+      label: 'Annual Progression',
+      icon: (
+        <TrendingUp className="w-4 h-4" />
+      ),
+      show: isLeadership,
+      group: 'MORE',
+    },
+
+    {
+      id: 'ACCOUNTING',
+      label: 'Trust Accounting',
+      icon: (
+        <CreditCard className="w-4 h-4" />
+      ),
+      show:
+        isSuperadmin ||
+        isAccountant,
+      group: 'MORE',
+    },
+
+    {
+      id: 'AUXILIARY',
+      label: 'Campus Auxiliary',
+      icon: (
+        <Package className="w-4 h-4" />
+      ),
+      show: isLeadership,
       group: 'MORE',
     },
   ];
 
-  const isModuleActive = (id: DashboardTab) => featureFlags[id] !== false;
+  /* =========================================================
+     FILTER ENABLED MODULES
+  ========================================================= */
 
-  const mainItems = navItems.filter((i) => i.show && isModuleActive(i.id) && i.group === 'MAIN');
-  const academicItems = navItems.filter((i) => i.show && isModuleActive(i.id) && i.group === 'ACADEMICS');
-  const moreItems = navItems.filter((i) => i.show && isModuleActive(i.id) && i.group === 'MORE');
+  const isModuleActive = (
+    id: DashboardTab
+  ) => featureFlags[id] !== false;
 
-  const renderLink = (item: NavItem) => {
-    const isActive = activeTab === item.id;
+  const systemItems = navItems.filter(
+    (item) =>
+      item.show &&
+      isModuleActive(item.id) &&
+      item.group === 'SYSTEM'
+  );
+
+  const mainItems = navItems.filter(
+    (item) =>
+      item.show &&
+      isModuleActive(item.id) &&
+      item.group === 'MAIN'
+  );
+
+  const operationItems =
+    navItems.filter(
+      (item) =>
+        item.show &&
+        isModuleActive(item.id) &&
+        item.group === 'OPERATIONS'
+    );
+
+  const moreItems = navItems.filter(
+    (item) =>
+      item.show &&
+      isModuleActive(item.id) &&
+      item.group === 'MORE'
+  );
+
+  /* =========================================================
+     NAVIGATION LINK
+  ========================================================= */
+
+  const renderLink = (
+    item: NavItem
+  ) => {
+    const isActive =
+      activeTab === item.id;
+
     return (
       <a
         key={item.id}
         href={TAB_ROUTE_MAP[item.id]}
         onClick={(e) => {
           e.preventDefault();
+
           onSelectTab(item.id);
-        }}
-        className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-          isActive
-            ? 'bg-orange-50 text-orange-700 font-bold border border-orange-200/90 shadow-2xs dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800/60'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800/60'
-        }`}
-      >
-        <span
-          className={
-            isActive
-              ? 'text-orange-600 dark:text-orange-400'
-              : 'text-slate-400 dark:text-slate-500'
+
+          if (onCloseMobile) {
+            onCloseMobile();
           }
+        }}
+        className={`
+          w-full
+          flex
+          items-center
+          gap-3
+          px-3
+          py-2
+          rounded-xl
+          text-xs
+          font-semibold
+          transition-all
+          cursor-pointer
+          relative
+          group
+          ${
+            isActive
+              ? `
+                bg-orange-50
+                text-orange-700
+                font-bold
+                border
+                border-orange-200
+                shadow-sm
+                dark:bg-orange-950/60
+                dark:text-orange-300
+                dark:border-orange-800/60
+              `
+              : `
+                text-slate-600
+                hover:text-slate-900
+                hover:bg-slate-100/80
+                dark:text-slate-400
+                dark:hover:text-slate-100
+                dark:hover:bg-slate-800/60
+              `
+          }
+        `}
+      >
+        {/* Active left border */}
+
+        {isActive && (
+          <span
+            className="
+              absolute
+              left-0
+              top-1.5
+              bottom-1.5
+              w-1
+              bg-orange-600
+              dark:bg-orange-500
+              rounded-r-full
+            "
+          />
+        )}
+
+        {/* Icon */}
+
+        <span
+          className={`
+            shrink-0
+            transition-colors
+            ${
+              isActive
+                ? `
+                  text-orange-600
+                  dark:text-orange-400
+                `
+                : `
+                  text-slate-400
+                  dark:text-slate-500
+                  group-hover:text-slate-600
+                  dark:group-hover:text-slate-300
+                `
+            }
+          `}
         >
           {item.icon}
         </span>
-        <span className="truncate">{item.label}</span>
+
+        {/* Label */}
+
+        <span className="truncate flex-1">
+          {item.label}
+        </span>
+
+        {/* Badge */}
+
+        {item.badge && (
+          <span
+            className={`
+              text-[10px]
+              font-bold
+              px-1.5
+              py-0.5
+              rounded-full
+              shrink-0
+              ${
+                item.badge === 'Audit'
+                  ? `
+                    bg-amber-100
+                    text-amber-800
+                    border
+                    border-amber-200
+                    dark:bg-amber-950
+                    dark:text-amber-300
+                  `
+                  : item.badge ===
+                    '27 Masters'
+                  ? `
+                    bg-orange-50
+                    text-orange-700
+                    border
+                    border-orange-200
+                    dark:bg-orange-950
+                    dark:text-orange-300
+                  `
+                  : `
+                    bg-rose-500
+                    text-white
+                  `
+              }
+            `}
+          >
+            {item.badge}
+          </span>
+        )}
       </a>
     );
   };
 
+  /* =========================================================
+     SIDEBAR UI
+  ========================================================= */
+
   return (
-    <aside className="w-60 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col h-full border-r border-slate-200 dark:border-slate-800 shrink-0 select-none overflow-hidden transition-colors">
-      {/* 1. Brand Logo Header */}
-      <div className="p-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2.5 bg-white dark:bg-slate-900">
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-xs shrink-0">
-          <GraduationCap className="w-4.5 h-4.5" />
+    <aside
+      className="
+        w-64
+        bg-white
+        dark:bg-slate-900
+        text-slate-800
+        dark:text-slate-100
+        flex
+        flex-col
+        h-full
+        border-r
+        border-slate-200
+        dark:border-slate-800
+        shrink-0
+        select-none
+        overflow-hidden
+        transition-colors
+      "
+    >
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+
+      <div
+        className="
+          p-3
+          border-b
+          border-slate-100
+          dark:border-slate-800
+          flex
+          items-center
+          justify-between
+          gap-2
+          bg-white
+          dark:bg-slate-900
+          shrink-0
+        "
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <TrustLogo
+            variant="horizontal"
+            size="sm"
+            showSubtitle={true}
+          />
         </div>
-        <div className="overflow-hidden">
-          <div className="font-extrabold text-slate-900 dark:text-white text-xs tracking-tight truncate">
-            TrustEdu ERP
-          </div>
-          <div className="text-[10px] font-bold text-orange-600 dark:text-orange-400">
-            Institutional Suite
-          </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Font settings */}
+
+          <button
+            type="button"
+            onClick={() =>
+              setShowFontModal(true)
+            }
+            title="Adjust Font Family & Interface Text Size"
+            aria-label="Customize Font Family and Size"
+            className="
+              p-1.5
+              rounded-lg
+              border
+              border-slate-200
+              dark:border-slate-700
+              hover:border-orange-400
+              hover:bg-orange-50
+              dark:hover:bg-slate-800
+              text-slate-500
+              hover:text-orange-600
+              dark:text-slate-400
+              transition-colors
+              cursor-pointer
+            "
+          >
+            <Type className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Mobile close */}
+
+          {onCloseMobile && (
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              title="Close Sidebar"
+              className="
+                lg:hidden
+                p-1.5
+                rounded-lg
+                border
+                border-slate-200
+                dark:border-slate-700
+                text-slate-500
+                hover:text-slate-800
+                dark:text-slate-300
+                hover:bg-slate-100
+                dark:hover:bg-slate-800
+                transition-colors
+                cursor-pointer
+              "
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 2. Streamlined Navigation Links */}
-      <div className="px-2.5 py-3 flex-1 space-y-4 overflow-y-auto">
-        {/* Main Section */}
-        <div className="space-y-0.5">
-          <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-3 mb-1">
-            Main Menu
-          </div>
-          {mainItems.map(renderLink)}
-        </div>
+      {/* =====================================================
+          NAVIGATION
+      ===================================================== */}
 
-        {/* Academics & Operations */}
-        {academicItems.length > 0 && (
-          <div className="space-y-0.5">
-            <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-3 mb-1">
-              Operations
+      <div
+        className="
+          px-2.5
+          py-2.5
+          flex-1
+          min-h-0
+          overflow-y-auto
+          space-y-4
+        "
+      >
+        {/* =================================================
+            SYSTEM MASTERS
+        ================================================= */}
+
+        {systemItems.length > 0 && (
+          <div className="space-y-1">
+            <div
+              className="
+                text-[10px]
+                font-bold
+                text-orange-600
+                dark:text-orange-400
+                uppercase
+                tracking-wider
+                px-3
+                mb-1
+              "
+            >
+              System
             </div>
-            {academicItems.map(renderLink)}
+
+            {systemItems.map(
+              renderLink
+            )}
           </div>
         )}
 
-        {/* More Tools (Collapsible to keep sidebar clean & uncluttered) */}
+        {/* =================================================
+            MAIN MENU
+        ================================================= */}
+
+        {mainItems.length > 0 && (
+          <div className="space-y-0.5">
+            <div
+              className="
+                text-[10px]
+                font-bold
+                text-slate-400
+                dark:text-slate-500
+                uppercase
+                tracking-wider
+                px-3
+                mb-1
+              "
+            >
+              Main Menu
+            </div>
+
+            {mainItems.map(renderLink)}
+          </div>
+        )}
+
+        {/* =================================================
+            OPERATIONS
+        ================================================= */}
+
+        {operationItems.length > 0 && (
+          <div className="space-y-0.5">
+            <div
+              className="
+                text-[10px]
+                font-bold
+                text-slate-400
+                dark:text-slate-500
+                uppercase
+                tracking-wider
+                px-3
+                mb-1
+              "
+            >
+              Operations
+            </div>
+
+            {operationItems.map(
+              renderLink
+            )}
+          </div>
+        )}
+
+        {/* =================================================
+            MORE MODULES
+        ================================================= */}
+
         {moreItems.length > 0 && (
-          <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+          <div
+            className="
+              space-y-1
+              pt-2
+              border-t
+              border-slate-100
+              dark:border-slate-800/80
+            "
+          >
             <button
               type="button"
-              onClick={() => setIsMoreOpen(!isMoreOpen)}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 uppercase tracking-wider rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+              onClick={() =>
+                setIsMoreOpen(
+                  !isMoreOpen
+                )
+              }
+              className="
+                w-full
+                flex
+                items-center
+                justify-between
+                px-3
+                py-1.5
+                text-[11px]
+                font-bold
+                text-slate-400
+                hover:text-slate-600
+                dark:text-slate-500
+                dark:hover:text-slate-300
+                uppercase
+                tracking-wider
+                rounded-lg
+                hover:bg-slate-50
+                dark:hover:bg-slate-800/40
+                transition-colors
+              "
             >
-              <span>More Modules ({moreItems.length})</span>
+              <span>
+                More Modules (
+                {moreItems.length})
+              </span>
+
               {isMoreOpen ? (
-                <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronUp className="w-3.5 h-3.5" />
               ) : (
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5" />
               )}
             </button>
 
-            {isMoreOpen && <div className="space-y-0.5 animate-fade-in">{moreItems.map(renderLink)}</div>}
+            {isMoreOpen && (
+              <div className="space-y-0.5">
+                {moreItems.map(
+                  renderLink
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* 3. Bottom Utilities */}
-      <div className="p-2.5 border-t border-slate-100 dark:border-slate-800 space-y-0.5 bg-slate-50/60 dark:bg-slate-900/60">
+      {/* =====================================================
+          BOTTOM UTILITIES
+      ===================================================== */}
+
+      <div
+        className="
+          p-2.5
+          border-t
+          border-slate-100
+          dark:border-slate-800
+          space-y-1
+          bg-slate-50/80
+          dark:bg-slate-900/80
+          shrink-0
+        "
+      >
+        {/* FEATURE FLAGS */}
+
         {isLeadership && (
           <a
             href="/dashboard/features"
             onClick={(e) => {
               e.preventDefault();
-              onSelectTab('FEATURE_FLAGS');
+
+              onSelectTab(
+                'FEATURE_FLAGS'
+              );
+
+              if (onCloseMobile) {
+                onCloseMobile();
+              }
             }}
-            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
-              activeTab === 'FEATURE_FLAGS'
-                ? 'bg-orange-50 text-orange-700 font-bold border border-orange-200/90 shadow-2xs dark:bg-orange-950/60 dark:text-orange-300'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800'
-            }`}
+            className={`
+              w-full
+              flex
+              items-center
+              justify-between
+              px-3
+              py-1.5
+              rounded-xl
+              text-xs
+              font-semibold
+              transition-colors
+              cursor-pointer
+              ${
+                activeTab ===
+                'FEATURE_FLAGS'
+                  ? `
+                    bg-orange-50
+                    text-orange-700
+                    font-bold
+                    border
+                    border-orange-200
+                    dark:bg-orange-950/60
+                    dark:text-orange-300
+                  `
+                  : `
+                    text-slate-600
+                    hover:text-slate-900
+                    hover:bg-slate-100
+                    dark:text-slate-400
+                    dark:hover:text-slate-100
+                    dark:hover:bg-slate-800
+                  `
+              }
+            `}
           >
             <div className="flex items-center gap-2.5">
               <Sliders className="w-3.5 h-3.5 text-orange-600" />
-              <span>Feature Flags</span>
+
+              <span>
+                Feature Flags
+              </span>
             </div>
-            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300">
+
+            <span
+              className="
+                text-[10px]
+                font-bold
+                px-1.5
+                py-0.5
+                rounded-md
+                bg-orange-100
+                text-orange-800
+                dark:bg-orange-950
+                dark:text-orange-300
+              "
+            >
               Deploy
             </span>
           </a>
         )}
+
+        {/* PUBLIC WEBSITE */}
 
         <a
           href="/"
           onClick={(e) => {
             e.preventDefault();
             onGoToWebsite();
+
+            if (onCloseMobile) {
+              onCloseMobile();
+            }
           }}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          className="
+            w-full
+            flex
+            items-center
+            gap-2.5
+            px-3
+            py-1.5
+            rounded-xl
+            text-xs
+            font-semibold
+            text-slate-600
+            hover:text-slate-900
+            hover:bg-slate-100
+            dark:text-slate-300
+            dark:hover:text-white
+            dark:hover:bg-slate-800
+            transition-colors
+            cursor-pointer
+          "
         >
           <Globe className="w-3.5 h-3.5 text-slate-400" />
-          <span>Public Portal</span>
+
+          <span>
+            Public Portal
+          </span>
         </a>
 
-        {/* Font & Scaling Customization Button */}
+        {/* FONT SETTINGS */}
+
         <button
           type="button"
-          onClick={() => setShowFontModal(true)}
-          className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          onClick={() =>
+            setShowFontModal(true)
+          }
+          title="Adjust Font Family & Interface Text Size"
+          className="
+            w-full
+            flex
+            items-center
+            justify-between
+            px-3
+            py-1.5
+            rounded-xl
+            text-xs
+            font-semibold
+            text-slate-700
+            hover:text-orange-700
+            hover:bg-orange-50
+            dark:text-slate-300
+            dark:hover:text-white
+            dark:hover:bg-slate-800
+            transition-colors
+            cursor-pointer
+          "
         >
           <div className="flex items-center gap-2.5">
-            <Type className="w-3.5 h-3.5 text-slate-400" />
-            <span>Font & Sizing</span>
+            <Type className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+
+            <span className="font-bold">
+              Font & Sizing
+            </span>
           </div>
-          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-            Aa
+
+          <span
+            className="
+              text-[10px]
+              font-bold
+              px-1.5
+              py-0.5
+              rounded-md
+              bg-orange-100
+              text-orange-800
+              dark:bg-orange-950
+              dark:text-orange-300
+            "
+          >
+            {FontThemeService.getScalePercent()}
+            %
           </span>
         </button>
+
+        {/* LOGOUT */}
 
         <button
           type="button"
           onClick={onLogout}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+          className="
+            w-full
+            flex
+            items-center
+            gap-2.5
+            px-3
+            py-1.5
+            rounded-xl
+            text-xs
+            font-semibold
+            text-rose-600
+            hover:text-rose-700
+            hover:bg-rose-50
+            dark:text-rose-400
+            dark:hover:text-rose-300
+            dark:hover:bg-rose-950/30
+            transition-colors
+            cursor-pointer
+          "
         >
           <LogOut className="w-3.5 h-3.5" />
-          <span>Sign Out</span>
+
+          <span>
+            Sign Out
+          </span>
         </button>
 
-        <div className="pt-2 text-center text-[10px] text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/80">
-          Developed by <span className="font-bold text-orange-600 dark:text-orange-400">Vishnu Software Solutions</span>
+        {/* DEVELOPER */}
+
+        <div
+          className="
+            pt-2
+            text-center
+            text-[10px]
+            text-slate-400
+            dark:text-slate-500
+            border-t
+            border-slate-100
+            dark:border-slate-800/80
+          "
+        >
+          Developed by{' '}
+
+          <span className="font-bold text-orange-600 dark:text-orange-400">
+            Vishnu Software Solutions
+          </span>
         </div>
       </div>
 
+      {/* =====================================================
+          FONT SETTINGS MODAL
+      ===================================================== */}
+
       <FontSettingsModal
         isOpen={showFontModal}
-        onClose={() => setShowFontModal(false)}
-        currentFontId={currentFontId}
-        currentSizeId={currentSizeId}
-        onApply={(fId, sId) => {
-          setCurrentFontId(fId);
-          setCurrentSizeId(sId);
+        onClose={() =>
+          setShowFontModal(false)
+        }
+        currentFontId={
+          currentFontId
+        }
+        currentSizeId={
+          currentSizeId
+        }
+        onApply={(
+          fontId,
+          sizeId
+        ) => {
+          setCurrentFontId(
+            fontId
+          );
+
+          setCurrentSizeId(
+            sizeId
+          );
         }}
       />
     </aside>
   );
 };
-

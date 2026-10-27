@@ -34,12 +34,29 @@ import {
   Trash2,
   AlertTriangle,
   Save,
+  History,
+  BookmarkCheck,
+  GraduationCap,
+  Languages,
+  ArrowRightLeft,
+  IdCard,
 } from 'lucide-react';
-import { Student } from '../types';
+import { Student, FeeReceipt } from '../types';
+import { IdCardModal } from './IdCardModal';
+import { IdCardData } from './IdCardPreview';
 import { exportToExcel, exportToPdf, ExportColumn } from '../utils/exportUtils';
 import { FilterBar } from './FilterBar';
 import { MasterStore } from '../utils/masterData';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
+import { MarathiKeypadInput } from './MarathiKeypadInput';
+import { transliterateToMarathi } from '../utils/marathiTransliterate';
+import { PrintableFeeReceiptModal } from './PrintableFeeReceiptModal';
+import {
+  generateFeeBreakdown,
+  numberToWordsINR,
+  numberToMarathiWordsINR,
+} from '../utils/feeReceiptUtils';
 
 interface StudentDirectoryModuleProps {
   students: Student[];
@@ -70,7 +87,11 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
   const [branchFilter, setBranchFilter] = useState<'ALL' | 'SCHOOL' | 'COLLEGE'>(selectedBranchScope);
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'STUDENT' | 'PREFECT' | 'INTERN'>('ALL');
   const [aadhaarFilter, setAadhaarFilter] = useState<'ALL' | 'VERIFIED' | 'PENDING'>('ALL');
+  const [enrollmentTypeFilter, setEnrollmentTypeFilter] = useState<'ALL' | 'EXISTING' | 'TRANSFER' | 'FRESH'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Mode: FRESH vs TRANSFER vs EXISTING onboarding
+  const [admissionMode, setAdmissionMode] = useState<'FRESH' | 'TRANSFER' | 'EXISTING'>('FRESH');
 
   // Advanced Multi-Dimensional Filter State
   const [showAdvancedModal, setShowAdvancedModal] = useState(false);
@@ -85,6 +106,7 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
 
   // Bulk Import State
   const [showImportModal, setShowImportModal] = useState(false);
+  const [importTab, setImportTab] = useState<'FRESH' | 'EXISTING'>('FRESH');
   const [importedPreview, setImportedPreview] = useState<any[]>([]);
   const [importFileName, setImportFileName] = useState<string>('');
   const [importSuccessAlert, setImportSuccessAlert] = useState<string | null>(null);
@@ -102,7 +124,42 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [showAdmissionModal, setShowAdmissionModal] = useState(false);
   const [showFeeModal, setShowFeeModal] = useState<Student | null>(null);
+  const [viewingReceipt, setViewingReceipt] = useState<FeeReceipt | null>(null);
   const [selectedStudentProfile, setSelectedStudentProfile] = useState<Student | null>(null);
+  const [idCardModalStudent, setIdCardModalStudent] = useState<Student | null>(null);
+
+  const studentToCardData = (s: Student): IdCardData => {
+    const isCollege =
+      (s.branchId && s.branchId.includes('hm')) ||
+      (s.branchName && s.branchName.toLowerCase().includes('hotel')) ||
+      (s.gradeOrSemester && (s.gradeOrSemester.includes('BHMCT') || s.gradeOrSemester.includes('Hotel')));
+
+    return {
+      type: 'STUDENT',
+      id: s.id,
+      name: s.name,
+      nameMarathi: s.nameMarathi,
+      photoUrl: s.profilePhotoUrl,
+      primaryCode: s.rollNo || s.admissionNo.slice(-4),
+      secondaryCode: s.grNumber || s.admissionNo,
+      badgeLabel: s.gradeOrSemester || 'Standard 8',
+      branchName: isCollege
+        ? 'Modern College Of Hotel Management And Technology Solapur'
+        : 'Modern Public School And Junior College Bhose',
+      bloodGroup: s.bloodGroup || 'O+',
+      dobOrJoinDate: s.dob || '2013-07-30',
+      dobOrJoinLabel: 'DOB',
+      emergencyPhone: s.parentPhone || '+91 98230 11999',
+      validUpto: '2026-2027',
+      address: s.currentAddress
+        ? `${s.currentAddress.street}, ${s.currentAddress.area}, ${s.currentAddress.taluka || 'Solapur'}`
+        : 'Plot 12, Hinjawadi Phase 1, Pune',
+      busRoute: 'Bus Route #04 (Bhose - Station)',
+      busStop: 'Main Circle',
+      signatoryTitle: isCollege ? 'Director' : 'Principal',
+      studentRef: s,
+    };
+  };
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
   const [feeAmount, setFeeAmount] = useState('12000');
@@ -111,6 +168,20 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
   const handleSaveStudentEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStudent) return;
+    if (editingStudent.previousProgress && !editingStudent.progress) {
+      editingStudent.progress = editingStudent.previousProgress;
+    }
+    if (editingStudent.previousConduct && !editingStudent.conduct) {
+      editingStudent.conduct = editingStudent.previousConduct;
+    }
+    if (editingStudent.admissionType === 'Transfer' || editingStudent.admissionType === 'Lateral') {
+      editingStudent.isExistingStudent = false;
+      if (!editingStudent.lastSchoolAttended && editingStudent.previousSchool) {
+        editingStudent.lastSchoolAttended = editingStudent.previousSchool;
+      }
+    } else if (editingStudent.admissionType === 'Existing') {
+      editingStudent.isExistingStudent = true;
+    }
     if (onEditStudent) {
       onEditStudent(editingStudent);
     }
@@ -131,9 +202,12 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
     setDeletingStudent(null);
   };
 
-  // Admission form state
+  // Admission form state (supporting Fresh, Transfer with previous school LC, and Existing students)
   const [newStudent, setNewStudent] = useState({
     name: '',
+    nameMarathi: '',
+    fatherNameMarathi: '',
+    motherNameMarathi: '',
     gender: 'MALE',
     branchId: 'branch-sch-01',
     gradeOrSemester: 'Class 1-A',
@@ -143,7 +217,151 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
     hotelSpecialization: '',
     aadhaarNumber: '',
     roleTag: 'STUDENT',
+    // Existing Student Fields
+    isExistingStudent: false,
+    admissionType: 'Fresh' as 'Fresh' | 'Transfer' | 'Existing' | 'Lateral',
+    originalAdmissionYear: '2023-2024',
+    grNumber: '',
+    prnNumber: '',
+    previousClassOrSem: '',
+    previousYearPercentage: 82.5,
+    openingFeeBalance: 0,
+    // Transfer & Previous School (Kaksha Plus 23 Standard)
+    previousSchool: '',
+    standardDivLeft: '',
+    schoolLeavingDate: '',
+    lcReceivedDate: '',
+    reasonForLeaving: '',
+    migrationUniversity: '',
+    voluntarySubjectSpecial: '',
+    previousProgress: 'Good',
+    previousConduct: 'Good',
+    progress: 'Good',
+    conduct: 'Good',
+    previousLcNumber: '',
   });
+
+  // Transfer Student Preset (from Another School with LC)
+  const handleFillTransferPreset = () => {
+    setAdmissionMode('TRANSFER');
+    setNewStudent((prev) => ({
+      ...prev,
+      name: 'Tanvi Santosh Patil',
+      nameMarathi: 'तन्वी संतोष पाटील',
+      fatherNameMarathi: 'संतोष पाटील',
+      motherNameMarathi: 'सुवर्णा पाटील',
+      gender: 'FEMALE',
+      branchId: 'branch-sch-01',
+      gradeOrSemester: 'Class 10-A',
+      parentName: 'Santosh Patil & Suvarna',
+      parentPhone: '+91 98223 99112',
+      feeTotal: 38000,
+      hotelSpecialization: '',
+      aadhaarNumber: '7821-4412-9901',
+      roleTag: 'STUDENT',
+      isExistingStudent: false,
+      admissionType: 'Transfer',
+      originalAdmissionYear: '2026-2027',
+      grNumber: 'GR-2026-TR-018',
+      prnNumber: 'PRN-2026-TR-018',
+      previousClassOrSem: '',
+      previousYearPercentage: 89.2,
+      openingFeeBalance: 0,
+      previousSchool: 'Shri Shivaji Vidyalaya & Jr College, Barshi',
+      standardDivLeft: 'Std 10 A',
+      schoolLeavingDate: '2026-05-15',
+      lcReceivedDate: '2026-06-10',
+      reasonForLeaving: 'Parent Job Transfer to Solapur',
+      migrationUniversity: 'Pune University / Maharashtra State Board',
+      voluntarySubjectSpecial: 'Physics',
+      previousProgress: 'Good',
+      previousConduct: 'Exemplary',
+      progress: 'Good',
+      conduct: 'Exemplary',
+      previousLcNumber: 'LC-BARSHI-2026-0428',
+    }));
+  };
+
+  // Single-student presets for existing students
+  const handleFillSchoolPreset = () => {
+    setAdmissionMode('EXISTING');
+    setNewStudent((prev) => ({
+      ...prev,
+      name: 'Aditya Rajesh Shinde',
+      nameMarathi: 'आदित्य राजेश शिंदे',
+      fatherNameMarathi: 'राजेश शिंदे',
+      motherNameMarathi: 'सुनीता शिंदे',
+      gender: 'MALE',
+      branchId: 'branch-sch-01',
+      gradeOrSemester: 'Class 8-A',
+      parentName: 'Rajesh Shinde & Sunita',
+      parentPhone: '+91 98224 88192',
+      feeTotal: 38000,
+      hotelSpecialization: '',
+      aadhaarNumber: '4821-9923-5511',
+      roleTag: 'STUDENT',
+      isExistingStudent: true,
+      admissionType: 'Existing',
+      originalAdmissionYear: '2022-2023',
+      grNumber: 'GR-2022-0418',
+      prnNumber: 'PRN-2022-0941',
+      previousClassOrSem: 'Class 7-A (Passed 88.4%)',
+      previousYearPercentage: 88.4,
+      openingFeeBalance: 0,
+      previousSchool: '',
+      standardDivLeft: '',
+      schoolLeavingDate: '',
+      lcReceivedDate: '',
+      reasonForLeaving: '',
+      migrationUniversity: '',
+      voluntarySubjectSpecial: '',
+      previousProgress: 'Good',
+      previousConduct: 'Good',
+      progress: 'Good',
+      conduct: 'Good',
+      previousLcNumber: '',
+    }));
+  };
+
+  const handleFillCollegePreset = () => {
+    setAdmissionMode('EXISTING');
+    setNewStudent((prev) => ({
+      ...prev,
+      name: 'Shruti Mahesh Patil',
+      nameMarathi: 'श्रुती महेश पाटील',
+      fatherNameMarathi: 'महेश पाटील',
+      motherNameMarathi: 'वंदना पाटील',
+      gender: 'FEMALE',
+      branchId: 'branch-hm-01',
+      gradeOrSemester: 'B.Sc H&HA Semester 4',
+      parentName: 'Mahesh Patil & Vandana',
+      parentPhone: '+91 98229 11029',
+      feeTotal: 75000,
+      hotelSpecialization: 'Front Office Operations & PMS Lab',
+      aadhaarNumber: '6712-4491-0023',
+      roleTag: 'PREFECT',
+      isExistingStudent: true,
+      admissionType: 'Existing',
+      originalAdmissionYear: '2024-2025',
+      grNumber: 'GR-2024-HM-0211',
+      prnNumber: 'PRN-2024-MH-8812',
+      previousClassOrSem: 'B.Sc H&HA Semester 3 (SGPA 8.8)',
+      previousYearPercentage: 86.0,
+      openingFeeBalance: 0,
+      previousSchool: '',
+      standardDivLeft: '',
+      schoolLeavingDate: '',
+      lcReceivedDate: '',
+      reasonForLeaving: '',
+      migrationUniversity: '',
+      voluntarySubjectSpecial: '',
+      previousProgress: 'Good',
+      previousConduct: 'Good',
+      progress: 'Good',
+      conduct: 'Good',
+      previousLcNumber: '',
+    }));
+  };
 
   // Calculate active advanced filter count
   const activeAdvancedFilterCount = useMemo(() => {
@@ -151,6 +369,7 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
     if (branchFilter !== (selectedBranchScope || 'ALL')) count++;
     if (roleFilter !== 'ALL') count++;
     if (aadhaarFilter !== 'ALL') count++;
+    if (enrollmentTypeFilter !== 'ALL') count++;
     if (standardFilter !== 'ALL') count++;
     if (specializationFilter !== 'ALL') count++;
     if (feeStatusFilter !== 'ALL') count++;
@@ -165,6 +384,7 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
     selectedBranchScope,
     roleFilter,
     aadhaarFilter,
+    enrollmentTypeFilter,
     standardFilter,
     specializationFilter,
     feeStatusFilter,
@@ -180,6 +400,7 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
     setBranchFilter(selectedBranchScope || 'ALL');
     setRoleFilter('ALL');
     setAadhaarFilter('ALL');
+    setEnrollmentTypeFilter('ALL');
     setStandardFilter('ALL');
     setSpecializationFilter('ALL');
     setFeeStatusFilter('ALL');
@@ -291,6 +512,343 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
     setImportFileName('Demo_Intake_Batch_2026.csv');
   };
 
+  // Dedicated Historical & Continuing Student CSV Template
+  const handleDownloadExistingTemplate = () => {
+    const headers = [
+      'Roll No',
+      'First Name',
+      'Last Name',
+      'Gender',
+      'Branch (SCHOOL/COLLEGE)',
+      'Standard or Semester',
+      'Admission Type (Existing)',
+      'Original Admission Year',
+      'Existing GR Number',
+      'PRN Number',
+      'Previous Class or Sem',
+      'Previous Percentage',
+      'Opening Arrears Balance',
+      'Parent Name',
+      'Parent Phone',
+      'Parent Email',
+      'Aadhaar No',
+      'Fee Total',
+      'Specialization (College)',
+    ];
+    const sampleRows = [
+      ['14', 'OMKAR', 'JADHAV', 'MALE', 'SCHOOL', 'Class 10-A', 'Existing', '2021-2022', 'GR-2021-0182', 'PRN-2021-9912', 'Class 9-A', '89.2', '0', 'Vitthal Jadhav', '+91 98233 44112', 'vitthal.jadhav@gmail.com', '6672-9901-2234', '48000', 'General Curriculum'],
+      ['BHM-401', 'GAURAV', 'SHINDE', 'MALE', 'COLLEGE', 'B.Sc H&HA Semester 4', 'Existing', '2024-2025', 'GR-2024-HM-0182', 'PRN-2024-UNI-5519', 'B.Sc H&HA Semester 3', '87.5', '0', 'Suresh Shinde', '+91 98224 88192', 'suresh.shinde@gmail.com', '4821-9923-5511', '75000', 'Food Production & Bakery'],
+    ];
+    const csvContent = [headers.join(','), ...sampleRows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Existing_Students_Migration_Template.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Bulk Load 4 Existing School Students
+  const handleLoadExistingSchoolBatch = () => {
+    const batch = [
+      {
+        id: `stu-exist-sch-${Date.now()}-1`,
+        branchId: 'branch-sch-01',
+        admissionNo: 'SCH-EXIST-1001',
+        rollNo: '14',
+        name: 'Omkar Vitthal Jadhav',
+        firstName: 'Omkar',
+        lastName: 'Jadhav',
+        gender: 'MALE' as const,
+        gradeOrSemester: 'Class 10-A',
+        standard: 'Class 10',
+        division: 'Division A',
+        admissionType: 'Existing' as const,
+        isExistingStudent: true,
+        originalAdmissionYear: '2021-2022',
+        admissionDate: '2021-06-15',
+        grNumber: 'GR-2021-0182',
+        prnNumber: 'PRN-2021-9912',
+        previousClassOrSem: 'Class 9-A',
+        previousYearPercentage: 89.2,
+        openingFeeBalance: 0,
+        legacyEnrollmentSource: 'BULK_CSV_MIGRATION' as const,
+        parentName: 'Vitthal Jadhav',
+        parentPhone: '+91 98233 44112',
+        parentEmail: 'vitthal.jadhav@gmail.com',
+        feeTotal: 48000,
+        feePaid: 48000,
+        feePending: 0,
+        attendancePercent: 96,
+        kycStatus: 'VERIFIED' as const,
+        aadhaarVerified: true,
+        aadhaarNumber: '6672-9901-2234',
+        bloodGroup: 'B+',
+        religion: 'Hindu',
+        category: 'OBC',
+      },
+      {
+        id: `stu-exist-sch-${Date.now()}-2`,
+        branchId: 'branch-sch-01',
+        admissionNo: 'SCH-EXIST-1002',
+        rollNo: '08',
+        name: 'Isha Sunil Kadam',
+        firstName: 'Isha',
+        lastName: 'Kadam',
+        gender: 'FEMALE' as const,
+        gradeOrSemester: 'Class 8-B',
+        standard: 'Class 8',
+        division: 'Division B',
+        admissionType: 'Existing' as const,
+        isExistingStudent: true,
+        originalAdmissionYear: '2023-2024',
+        admissionDate: '2023-06-12',
+        grNumber: 'GR-2023-0491',
+        prnNumber: 'PRN-2023-5510',
+        previousClassOrSem: 'Class 7-B',
+        previousYearPercentage: 92.5,
+        openingFeeBalance: 0,
+        legacyEnrollmentSource: 'BULK_CSV_MIGRATION' as const,
+        parentName: 'Sunil Kadam & Meena',
+        parentPhone: '+91 98221 77234',
+        parentEmail: 'sunil.kadam@gmail.com',
+        feeTotal: 38000,
+        feePaid: 30000,
+        feePending: 8000,
+        attendancePercent: 94,
+        kycStatus: 'VERIFIED' as const,
+        aadhaarVerified: true,
+        aadhaarNumber: '4481-2299-1102',
+        bloodGroup: 'O+',
+        religion: 'Hindu',
+        category: 'General',
+      },
+      {
+        id: `stu-exist-sch-${Date.now()}-3`,
+        branchId: 'branch-sch-01',
+        admissionNo: 'SCH-EXIST-1003',
+        rollNo: '21',
+        name: 'Samarth Nilesh Pawar',
+        firstName: 'Samarth',
+        lastName: 'Pawar',
+        gender: 'MALE' as const,
+        gradeOrSemester: 'Class 6-A',
+        standard: 'Class 6',
+        division: 'Division A',
+        admissionType: 'Existing' as const,
+        isExistingStudent: true,
+        originalAdmissionYear: '2024-2025',
+        admissionDate: '2024-06-10',
+        grNumber: 'GR-2024-0715',
+        prnNumber: 'PRN-2024-3321',
+        previousClassOrSem: 'Class 5-A',
+        previousYearPercentage: 84.0,
+        openingFeeBalance: 0,
+        legacyEnrollmentSource: 'BULK_CSV_MIGRATION' as const,
+        parentName: 'Nilesh Pawar',
+        parentPhone: '+91 98234 55991',
+        parentEmail: 'nilesh.pawar@gmail.com',
+        feeTotal: 36000,
+        feePaid: 36000,
+        feePending: 0,
+        attendancePercent: 95,
+        kycStatus: 'VERIFIED' as const,
+        aadhaarVerified: true,
+        aadhaarNumber: '5592-1188-3342',
+        bloodGroup: 'A+',
+        religion: 'Hindu',
+        category: 'Open',
+      },
+      {
+        id: `stu-exist-sch-${Date.now()}-4`,
+        branchId: 'branch-sch-01',
+        admissionNo: 'SCH-EXIST-1004',
+        rollNo: '05',
+        name: 'Anaya Sachin More',
+        firstName: 'Anaya',
+        lastName: 'More',
+        gender: 'FEMALE' as const,
+        gradeOrSemester: 'Class 4-B',
+        standard: 'Class 4',
+        division: 'Division B',
+        admissionType: 'Existing' as const,
+        isExistingStudent: true,
+        originalAdmissionYear: '2025-2026',
+        admissionDate: '2025-06-16',
+        grNumber: 'GR-2025-0902',
+        prnNumber: 'PRN-2025-1144',
+        previousClassOrSem: 'Class 3-B',
+        previousYearPercentage: 95.0,
+        openingFeeBalance: 0,
+        legacyEnrollmentSource: 'BULK_CSV_MIGRATION' as const,
+        parentName: 'Sachin More & Priya',
+        parentPhone: '+91 98236 66120',
+        parentEmail: 'sachin.more@gmail.com',
+        feeTotal: 34000,
+        feePaid: 34000,
+        feePending: 0,
+        attendancePercent: 98,
+        kycStatus: 'VERIFIED' as const,
+        aadhaarVerified: true,
+        aadhaarNumber: '7721-3309-8812',
+        bloodGroup: 'AB+',
+        religion: 'Hindu',
+        category: 'OBC',
+      },
+    ];
+    setImportedPreview(batch);
+    setImportFileName('Existing_School_Students_Batch_2021_2025.csv');
+  };
+
+  // Bulk Load 4 Existing College Students
+  const handleLoadExistingCollegeBatch = () => {
+    const batch = [
+      {
+        id: `stu-exist-col-${Date.now()}-1`,
+        branchId: 'branch-hm-01',
+        admissionNo: 'HM-EXIST-2001',
+        rollNo: 'BHM-401',
+        name: 'Gaurav Suresh Shinde',
+        firstName: 'Gaurav',
+        lastName: 'Shinde',
+        gender: 'MALE' as const,
+        gradeOrSemester: 'B.Sc H&HA Semester 4',
+        admissionType: 'Existing' as const,
+        isExistingStudent: true,
+        originalAdmissionYear: '2024-2025',
+        admissionDate: '2024-07-01',
+        grNumber: 'GR-2024-HM-0182',
+        prnNumber: 'PRN-2024-UNI-5519',
+        hotelSpecialization: 'Food Production & Bakery',
+        previousClassOrSem: 'B.Sc H&HA Semester 3',
+        previousYearPercentage: 87.5,
+        openingFeeBalance: 0,
+        legacyEnrollmentSource: 'BULK_CSV_MIGRATION' as const,
+        parentName: 'Suresh Shinde',
+        parentPhone: '+91 98224 88192',
+        parentEmail: 'suresh.shinde@gmail.com',
+        feeTotal: 75000,
+        feePaid: 75000,
+        feePending: 0,
+        attendancePercent: 93,
+        kycStatus: 'VERIFIED' as const,
+        aadhaarVerified: true,
+        aadhaarNumber: '4821-9923-5511',
+        bloodGroup: 'B+',
+        religion: 'Hindu',
+        category: 'General',
+      },
+      {
+        id: `stu-exist-col-${Date.now()}-2`,
+        branchId: 'branch-hm-01',
+        admissionNo: 'HM-EXIST-2002',
+        rollNo: 'BHM-402',
+        name: 'Pranali Ashok Joshi',
+        firstName: 'Pranali',
+        lastName: 'Joshi',
+        gender: 'FEMALE' as const,
+        gradeOrSemester: 'B.Sc H&HA Semester 4',
+        admissionType: 'Existing' as const,
+        isExistingStudent: true,
+        originalAdmissionYear: '2024-2025',
+        admissionDate: '2024-07-01',
+        grNumber: 'GR-2024-HM-0183',
+        prnNumber: 'PRN-2024-UNI-5520',
+        hotelSpecialization: 'Food & Beverage Service / Mock Bar',
+        previousClassOrSem: 'B.Sc H&HA Semester 3',
+        previousYearPercentage: 91.0,
+        openingFeeBalance: 0,
+        legacyEnrollmentSource: 'BULK_CSV_MIGRATION' as const,
+        parentName: 'Ashok Joshi',
+        parentPhone: '+91 98225 11982',
+        parentEmail: 'ashok.joshi@gmail.com',
+        feeTotal: 75000,
+        feePaid: 50000,
+        feePending: 25000,
+        attendancePercent: 96,
+        kycStatus: 'VERIFIED' as const,
+        aadhaarVerified: true,
+        aadhaarNumber: '7712-4402-9931',
+        bloodGroup: 'O+',
+        religion: 'Hindu',
+        category: 'General',
+      },
+      {
+        id: `stu-exist-col-${Date.now()}-3`,
+        branchId: 'branch-hm-01',
+        admissionNo: 'HM-EXIST-2003',
+        rollNo: 'BHM-601',
+        name: 'Kunal Ravindra Chavan',
+        firstName: 'Kunal',
+        lastName: 'Chavan',
+        gender: 'MALE' as const,
+        gradeOrSemester: 'B.Sc H&HA Semester 6',
+        admissionType: 'Existing' as const,
+        isExistingStudent: true,
+        originalAdmissionYear: '2023-2024',
+        admissionDate: '2023-07-05',
+        grNumber: 'GR-2023-HM-0091',
+        prnNumber: 'PRN-2023-UNI-4411',
+        hotelSpecialization: 'Housekeeping Operations Lab',
+        previousClassOrSem: 'B.Sc H&HA Semester 5',
+        previousYearPercentage: 85.2,
+        openingFeeBalance: 0,
+        legacyEnrollmentSource: 'BULK_CSV_MIGRATION' as const,
+        parentName: 'Ravindra Chavan',
+        parentPhone: '+91 98227 44102',
+        parentEmail: 'ravindra.chavan@gmail.com',
+        feeTotal: 80000,
+        feePaid: 80000,
+        feePending: 0,
+        attendancePercent: 91,
+        kycStatus: 'VERIFIED' as const,
+        aadhaarVerified: true,
+        aadhaarNumber: '8821-3319-5502',
+        bloodGroup: 'A+',
+        religion: 'Hindu',
+        category: 'OBC',
+      },
+      {
+        id: `stu-exist-col-${Date.now()}-4`,
+        branchId: 'branch-hm-01',
+        admissionNo: 'HM-EXIST-2004',
+        rollNo: 'BHM-201',
+        name: 'Tanmay Deepak Koli',
+        firstName: 'Tanmay',
+        lastName: 'Koli',
+        gender: 'MALE' as const,
+        gradeOrSemester: 'B.Sc H&HA Semester 2',
+        admissionType: 'Existing' as const,
+        isExistingStudent: true,
+        originalAdmissionYear: '2025-2026',
+        admissionDate: '2025-07-10',
+        grNumber: 'GR-2025-HM-0301',
+        prnNumber: 'PRN-2025-UNI-6618',
+        hotelSpecialization: 'Front Office Operations & PMS Lab',
+        previousClassOrSem: 'B.Sc H&HA Semester 1',
+        previousYearPercentage: 88.0,
+        openingFeeBalance: 0,
+        legacyEnrollmentSource: 'BULK_CSV_MIGRATION' as const,
+        parentName: 'Deepak Koli',
+        parentPhone: '+91 98228 99120',
+        parentEmail: 'deepak.koli@gmail.com',
+        feeTotal: 75000,
+        feePaid: 75000,
+        feePending: 0,
+        attendancePercent: 95,
+        kycStatus: 'VERIFIED' as const,
+        aadhaarVerified: true,
+        aadhaarNumber: '9912-4421-7788',
+        bloodGroup: 'B+',
+        religion: 'Hindu',
+        category: 'SBC',
+      },
+    ];
+    setImportedPreview(batch);
+    setImportFileName('Existing_College_Students_Batch_2023_2025.csv');
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -311,30 +869,43 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
           const roll = cols[0] || String(i);
           const fName = cols[1] || 'Student';
           const lName = cols[2] || '';
+          const isRowExisting = (cols[6] || '').toLowerCase().includes('exist') || (cols[7] && cols[7].includes('-'));
+          const origYear = isRowExisting ? (cols[7] || '2023-2024') : '2026-2027';
+          const grNum = cols[8] || (isRowExisting ? `GR-HIST-${Math.floor(Math.random() * 8000) + 1000}` : undefined);
+          const prnNum = cols[9] || (isRowExisting ? `PRN-HIST-${Math.floor(Math.random() * 8000) + 1000}` : undefined);
+
           parsed.push({
             id: `stu-imp-${Date.now()}-${i}`,
-            branchId: branchFilter === 'COLLEGE' ? 'branch-hm-01' : 'branch-sch-01',
-            admissionNo: `ADM-2026-${String(Math.floor(Math.random() * 900) + 100)}`,
+            branchId: (cols[4]?.toUpperCase().includes('COLLEGE') || branchFilter === 'COLLEGE') ? 'branch-hm-01' : 'branch-sch-01',
+            admissionNo: isRowExisting ? `ADM-HIST-${String(Math.floor(Math.random() * 900) + 100)}` : `ADM-2026-${String(Math.floor(Math.random() * 900) + 100)}`,
             rollNo: roll,
             name: `${fName} ${lName}`.trim(),
             firstName: fName,
             lastName: lName,
             gender: (cols[3]?.toUpperCase() === 'FEMALE' ? 'FEMALE' : 'MALE') as any,
-            gradeOrSemester: cols[4] || (branchFilter === 'COLLEGE' ? 'B.Sc H&HA Semester 1' : 'STD 8 - Division A'),
-            standard: cols[4] || 'STD 8',
+            gradeOrSemester: cols[5] || cols[4] || (branchFilter === 'COLLEGE' ? 'B.Sc H&HA Semester 1' : 'STD 8 - Division A'),
+            standard: cols[5] || cols[4] || 'STD 8',
             division: cols[5] || 'Division A',
-            admissionType: cols[6] || 'Fresh',
-            parentName: cols[7] || 'Parent Guardian',
-            parentPhone: cols[8] || '+91 98000 00000',
-            parentEmail: cols[9] || 'parent@example.com',
-            feeTotal: Number(cols[11]) || 38000,
+            admissionType: isRowExisting ? 'Existing' : 'Fresh',
+            isExistingStudent: isRowExisting,
+            originalAdmissionYear: origYear,
+            grNumber: grNum,
+            prnNumber: prnNum,
+            previousClassOrSem: cols[10] || undefined,
+            previousYearPercentage: Number(cols[11]) || undefined,
+            openingFeeBalance: Number(cols[12]) || 0,
+            legacyEnrollmentSource: isRowExisting ? 'BULK_CSV_MIGRATION' : undefined,
+            parentName: cols[13] || cols[7] || 'Parent Guardian',
+            parentPhone: cols[14] || cols[8] || '+91 98000 00000',
+            parentEmail: cols[15] || cols[9] || 'parent@example.com',
+            feeTotal: Number(cols[17]) || Number(cols[11]) || 38000,
             feePaid: 0,
-            feePending: Number(cols[11]) || 38000,
+            feePending: Number(cols[17]) || Number(cols[11]) || 38000,
             attendancePercent: 100,
-            kycStatus: 'PENDING',
-            aadhaarVerified: false,
-            aadhaarNumber: cols[10] || '',
-            bloodGroup: cols[12] || 'O+',
+            kycStatus: 'VERIFIED',
+            aadhaarVerified: Boolean(cols[16] || cols[10]),
+            aadhaarNumber: cols[16] || cols[10] || '',
+            bloodGroup: 'O+',
           });
         }
       }
@@ -429,6 +1000,11 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
   // Comprehensive multi-filter matching
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
+      // 0. Enrollment / Intake Type Filter (Existing vs Transfer vs Fresh)
+      if (enrollmentTypeFilter === 'EXISTING' && !(s.admissionType === 'Existing' || s.isExistingStudent)) return false;
+      if (enrollmentTypeFilter === 'TRANSFER' && !(s.admissionType === 'Transfer' || s.admissionType === 'Lateral' || s.previousSchool)) return false;
+      if (enrollmentTypeFilter === 'FRESH' && (s.admissionType === 'Existing' || s.isExistingStudent || s.admissionType === 'Transfer' || s.admissionType === 'Lateral' || s.previousSchool)) return false;
+
       // 1. Branch Filter
       if (branchFilter === 'SCHOOL' && s.branchId !== 'branch-sch-01') return false;
       if (branchFilter === 'COLLEGE' && s.branchId !== 'branch-hm-01') return false;
@@ -483,6 +1059,9 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
           s.parentName.toLowerCase().includes(q) ||
           (s.aadhaarNumber && s.aadhaarNumber.toLowerCase().includes(q)) ||
           (cleanAadhaar && cleanAadhaar.includes(cleanQ)) ||
+          (s.grNumber && s.grNumber.toLowerCase().includes(q)) ||
+          (s.prnNumber && s.prnNumber.toLowerCase().includes(q)) ||
+          (s.originalAdmissionYear && s.originalAdmissionYear.toLowerCase().includes(q)) ||
           (s.roleTag && s.roleTag.toLowerCase().includes(q)) ||
           (s.hotelSpecialization && s.hotelSpecialization.toLowerCase().includes(q));
         if (!match) return false;
@@ -496,6 +1075,7 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
     specializationFilter,
     roleFilter,
     aadhaarFilter,
+    enrollmentTypeFilter,
     standardFilter,
     feeStatusFilter,
     attendanceFilter,
@@ -516,6 +1096,15 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
     defaultKey: null,
     defaultDirection: 'asc',
   });
+
+  // Client-side pagination
+  const {
+    currentPage: studentPage,
+    setCurrentPage: setStudentPage,
+    pageSize: studentPageSize,
+    setPageSize: setStudentPageSize,
+    paginatedItems: paginatedStudents,
+  } = usePagination<Student>(sortedStudents, 10);
 
   // Export to Excel handler
   const handleExportExcel = (onlyFiltered: boolean) => {
@@ -612,10 +1201,45 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
   const handleCreateAdmission = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStudent.name) return;
-    onAddStudent(newStudent);
+    const isExisting = newStudent.admissionType === 'Existing' || admissionMode === 'EXISTING' || newStudent.isExistingStudent;
+    const isTransfer = newStudent.admissionType === 'Transfer' || newStudent.admissionType === 'Lateral' || admissionMode === 'TRANSFER';
+    const finalAdmissionType = newStudent.admissionType || (isExisting ? 'Existing' : isTransfer ? 'Transfer' : 'Fresh');
+
+    onAddStudent({
+      ...newStudent,
+      isExistingStudent: isExisting,
+      admissionType: finalAdmissionType,
+      originalAdmissionYear: isExisting ? (newStudent.originalAdmissionYear || '2023-2024') : '2026-2027',
+      grNumber:
+        newStudent.grNumber ||
+        (isExisting
+          ? `GR-HIST-${Math.floor(Math.random() * 8000) + 1000}`
+          : isTransfer
+          ? `GR-2026-TR-${Math.floor(Math.random() * 800) + 100}`
+          : undefined),
+      prnNumber: newStudent.prnNumber || (isExisting ? `PRN-HIST-${Math.floor(Math.random() * 8000) + 1000}` : undefined),
+      legacyEnrollmentSource: isExisting ? 'MANUAL_ENTRY' : undefined,
+      lastSchoolAttended: isTransfer ? newStudent.previousSchool : undefined,
+      // Kaksha Plus Transfer specifics
+      previousSchool: isTransfer ? newStudent.previousSchool : undefined,
+      standardDivLeft: isTransfer ? newStudent.standardDivLeft : undefined,
+      schoolLeavingDate: isTransfer ? newStudent.schoolLeavingDate : undefined,
+      lcReceivedDate: isTransfer ? newStudent.lcReceivedDate : undefined,
+      reasonForLeaving: isTransfer ? newStudent.reasonForLeaving : undefined,
+      migrationUniversity: isTransfer ? newStudent.migrationUniversity : undefined,
+      voluntarySubjectSpecial: isTransfer ? newStudent.voluntarySubjectSpecial : undefined,
+      previousProgress: isTransfer ? (newStudent.previousProgress || newStudent.progress) : undefined,
+      previousConduct: isTransfer ? (newStudent.previousConduct || newStudent.conduct) : undefined,
+      previousLcNumber: isTransfer ? newStudent.previousLcNumber : undefined,
+      progress: newStudent.progress || newStudent.previousProgress || 'Good',
+      conduct: newStudent.conduct || newStudent.previousConduct || 'Good',
+    });
     setShowAdmissionModal(false);
     setNewStudent({
       name: '',
+      nameMarathi: '',
+      fatherNameMarathi: '',
+      motherNameMarathi: '',
       gender: 'MALE',
       branchId: 'branch-sch-01',
       gradeOrSemester: 'Class 1-A',
@@ -625,13 +1249,81 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
       hotelSpecialization: '',
       aadhaarNumber: '',
       roleTag: 'STUDENT',
+      isExistingStudent: false,
+      admissionType: 'Fresh',
+      originalAdmissionYear: '2023-2024',
+      grNumber: '',
+      prnNumber: '',
+      previousClassOrSem: '',
+      previousYearPercentage: 82.5,
+      openingFeeBalance: 0,
+      previousSchool: '',
+      standardDivLeft: '',
+      schoolLeavingDate: '',
+      lcReceivedDate: '',
+      reasonForLeaving: '',
+      migrationUniversity: '',
+      voluntarySubjectSpecial: '',
+      previousProgress: 'Good',
+      previousConduct: 'Good',
+      progress: 'Good',
+      conduct: 'Good',
+      previousLcNumber: '',
     });
+    setAdmissionMode('FRESH');
   };
 
   const handlePayFee = (e: React.FormEvent) => {
     e.preventDefault();
     if (!showFeeModal) return;
-    onCollectFee(showFeeModal.id, Number(feeAmount), paymentMode);
+    const stu = showFeeModal;
+    const amt = Number(feeAmount);
+    onCollectFee(stu.id, amt, paymentMode);
+
+    const isSchool = stu.branchId === 'branch-sch-01';
+    const breakdown = generateFeeBreakdown(amt, isSchool ? 'SCHOOL' : 'COLLEGE');
+    const previouslyPaid = stu.feePaid;
+    const remainingBalance = Math.max(0, stu.feeTotal - (stu.feePaid + amt));
+
+    const receipt: FeeReceipt = {
+      id: `rcp-${Date.now()}`,
+      receiptNo: `RCP-${isSchool ? 'SCH' : 'HM'}-2026-${Math.floor(100 + Math.random() * 900)}`,
+      studentId: stu.id,
+      studentName: stu.name,
+      studentNameMarathi: stu.nameMarathi,
+      branchName: isSchool
+        ? 'Modern Public School And Junior College Bhose'
+        : 'Modern College Of Hotel Management And Technology Solapur',
+      standardOrGrade: stu.gradeOrSemester,
+      division: stu.division || 'A',
+      rollNo: stu.rollNo,
+      admissionNo: stu.admissionNo,
+      grNumber: stu.grNumber,
+      academicYear: '2026-2027',
+      parentName: stu.parentName || stu.fatherName,
+      parentPhone: stu.parentPhone,
+      category: stu.category || 'General',
+      amount: amt,
+      totalAnnualFee: stu.feeTotal,
+      previouslyPaid,
+      remainingBalance,
+      paymentMode,
+      transactionReference:
+        paymentMode === 'UPI'
+          ? `UPI/UTR-${Math.floor(100000000000 + Math.random() * 900000000000)}`
+          : paymentMode === 'CHEQUE'
+          ? `CHQ-${Math.floor(100000 + Math.random() * 900000)}`
+          : `CASH-REC-${Math.floor(1000 + Math.random() * 9000)}`,
+      date: new Date().toISOString().split('T')[0],
+      installmentNo: `Installment ${stu.feePaid > 0 ? 2 : 1} (2026-2027)`,
+      feeBreakdown: breakdown,
+      amountInWords: numberToWordsINR(amt),
+      amountInWordsMarathi: numberToMarathiWordsINR(amt),
+      cashierName: 'Accounts Officer (Central Trust Office)',
+      status: 'PAID',
+    };
+
+    setViewingReceipt(receipt);
     setShowFeeModal(null);
   };
 
@@ -655,12 +1347,194 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
       )}
 
       {/* Clean Unified Action & Filter Toolbar directly above the table */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm space-y-3">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-          {/* Left: Quick Filters & Search */}
-          <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap sm:flex-nowrap">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm space-y-4">
+        {/* ROW 1: Module Title & Action Button Groups */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          {/* Left: Module Title & Scope Badge */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold shrink-0">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
+                  Students Master Directory
+                </h2>
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-orange-50 text-orange-800 border border-orange-200">
+                  {branchFilter === 'SCHOOL'
+                    ? 'Modern Public School & Jr College'
+                    : branchFilter === 'COLLEGE'
+                    ? 'Hotel Management College'
+                    : 'Consolidated Trust Roster'}
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 font-mono">
+                  AY {academicYear}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium">
+                Comprehensive roster, academic records, fee ledgers & student profiles
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Action Buttons Grouped Responsively */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-start xl:justify-end">
+            {/* Data Tools Group: Import, Export, Progression */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-50 border border-slate-200 rounded-xl shrink-0">
+              {/* Import Data */}
+              <button
+                type="button"
+                onClick={() => setShowImportModal(true)}
+                className="bg-white hover:bg-emerald-50 text-emerald-800 hover:text-emerald-900 font-bold text-xs px-2.5 py-1.5 rounded-lg border border-slate-200/80 shadow-2xs transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                title="Bulk import students from Excel or CSV template"
+              >
+                <Upload className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Import</span>
+              </button>
+
+              {/* Export Data Dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowExportDropdown(!showExportDropdown)}
+                  className="bg-white hover:bg-orange-50 text-slate-800 hover:text-orange-700 font-bold text-xs px-2.5 py-1.5 rounded-lg border border-slate-200/80 shadow-2xs transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                  title="Export database records to Excel or PDF"
+                >
+                  <Download className="w-3.5 h-3.5 text-orange-600" />
+                  <span>Export</span>
+                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                </button>
+
+                {showExportDropdown && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-30 animate-scale-in">
+                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1.5">
+                      Excel (.xlsx / .csv)
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowExportDropdown(false);
+                        handleExportExcel(true);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                      <div>
+                        <div>Export Filtered Records</div>
+                        <div className="text-[10px] font-normal text-slate-400">{filteredStudents.length} Students in view</div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowExportDropdown(false);
+                        handleExportExcel(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                      <div>
+                        <div>Export ALL Data</div>
+                        <div className="text-[10px] font-normal text-slate-400">{students.length} Total database records</div>
+                      </div>
+                    </button>
+
+                    <div className="border-t border-slate-100 my-1"></div>
+
+                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1.5">
+                      Official PDF Document
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowExportDropdown(false);
+                        handleExportPdf(true);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4 text-rose-600" />
+                      <div>
+                        <div>Export Filtered to PDF</div>
+                        <div className="text-[10px] font-normal text-slate-400">Printable A4 report with letterhead</div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowExportDropdown(false);
+                        handleExportPdf(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4 text-rose-600" />
+                      <div>
+                        <div>Export ALL Data to PDF</div>
+                        <div className="text-[10px] font-normal text-slate-400">Complete Trust roster PDF</div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Annual Progression */}
+              {onOpenProgression && (
+                <button
+                  type="button"
+                  onClick={onOpenProgression}
+                  className="bg-white hover:bg-amber-50 text-amber-800 hover:text-amber-900 font-bold text-xs px-2.5 py-1.5 rounded-lg border border-slate-200/80 shadow-2xs transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                  title="Promote students to next class / grade"
+                >
+                  <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
+                  <span className="hidden md:inline">Progression</span>
+                </button>
+              )}
+            </div>
+
+            {/* Primary Admissions Group: Enroll Existing, New Admission, CAP Wizard */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdmissionMode('EXISTING');
+                  setShowAdmissionModal(true);
+                }}
+                className="bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs px-3 py-2 rounded-xl border border-blue-200 shadow-2xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
+                title="Enroll continuing students already studying in School or College with historical GR number"
+              >
+                <History className="w-3.5 h-3.5 text-blue-600" />
+                <span className="hidden sm:inline">Enroll Existing</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAdmissionMode('FRESH');
+                  setShowAdmissionModal(true);
+                }}
+                className="bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-md shadow-orange-600/20 flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
+                title="Fresh Intake Admission for Academic Session 2026-2027"
+              >
+                <UserPlus className="w-3.5 h-3.5 text-white" />
+                <span>+ New Admission</span>
+              </button>
+
+              {onOpenAdmissionWizard && (
+                <button
+                  type="button"
+                  onClick={onOpenAdmissionWizard}
+                  className="bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-md shadow-orange-600/20 flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
+                  title="Launch 6-Step Multi-Campus Admission Wizard"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                  <span>CAP Wizard</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ROW 2: Search Bar, Standard Filter, Advanced Filters & Status Summary */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          {/* Left: Search & Filter inputs */}
+          <div className="flex items-center gap-2 flex-1 flex-wrap sm:flex-nowrap">
             {/* Quick Search */}
-            <div className="relative flex-1 min-w-[200px] sm:min-w-[260px]">
+            <div className="relative flex-1 min-w-[220px]">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
@@ -673,7 +1547,7 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                     ? 'Search college students by name, PRN, course...'
                     : 'Search students by name, roll, PRN, Aadhaar...'
                 }
-                className="w-full pl-9 pr-7 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium"
+                className="w-full pl-9 pr-7 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium transition-colors"
               />
               {searchQuery && (
                 <button
@@ -688,12 +1562,12 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
             </div>
 
             {/* Quick Standard Dropdown */}
-            <div className="relative shrink-0 min-w-[150px] sm:min-w-[190px]">
+            <div className="relative shrink-0 min-w-[160px] sm:min-w-[200px]">
               <select
                 value={standardFilter}
                 onChange={(e) => setStandardFilter(e.target.value)}
                 aria-label="Filter by standard or class"
-                className="w-full appearance-none bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-3 py-2 pr-7 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                className="w-full appearance-none bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-3 py-2 pr-7 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer transition-colors"
               >
                 <option value="ALL">
                   {branchFilter === 'SCHOOL'
@@ -746,171 +1620,46 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
             )}
           </div>
 
-          {/* Right: Action Buttons in ONE clean line: Import, Export, Progression, Add, Wizard */}
-          <div className="flex items-center gap-2 flex-nowrap shrink-0 overflow-x-auto max-w-full py-0.5">
-            {/* 1. Import Data Button */}
-            <button
-              type="button"
-              onClick={() => setShowImportModal(true)}
-              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs px-3.5 py-2 rounded-xl border border-emerald-200 shadow-2xs transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0"
-              title="Bulk import students from Excel or CSV template"
-            >
-              <Upload className="w-4 h-4 text-emerald-600" />
-              <span>Import Data</span>
-            </button>
-
-            {/* 2. Export Dropdown Button */}
-            <div className="relative shrink-0">
-              <button
-                onClick={() => setShowExportDropdown(!showExportDropdown)}
-                className="bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0"
-                title="Export database records to Excel or PDF"
-              >
-                <Download className="w-4 h-4 text-white" />
-                <span>Export Data</span>
-                <ChevronDown className="w-3.5 h-3.5 text-orange-200" />
-              </button>
-
-              {showExportDropdown && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-30 animate-scale-in">
-                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1.5">
-                    Excel (.xlsx / .csv)
-                  </div>
-                  <button
-                    onClick={() => handleExportExcel(true)}
-                    className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                    <div>
-                      <div>Export Filtered Records</div>
-                      <div className="text-[10px] font-normal text-slate-400">{filteredStudents.length} Students in view</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => handleExportExcel(false)}
-                    className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                    <div>
-                      <div>Export ALL Data</div>
-                      <div className="text-[10px] font-normal text-slate-400">{students.length} Total database records</div>
-                    </div>
-                  </button>
-
-                  <div className="border-t border-slate-100 my-1"></div>
-
-                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1.5">
-                    Official PDF Document
-                  </div>
-                  <button
-                    onClick={() => handleExportPdf(true)}
-                    className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <FileText className="w-4 h-4 text-rose-600" />
-                    <div>
-                      <div>Export Filtered to PDF</div>
-                      <div className="text-[10px] font-normal text-slate-400">Printable A4 report with letterhead</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => handleExportPdf(false)}
-                    className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <FileText className="w-4 h-4 text-rose-600" />
-                    <div>
-                      <div>Export ALL Data to PDF</div>
-                      <div className="text-[10px] font-normal text-slate-400">Complete Trust roster PDF</div>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* 3. Annual Progression Button */}
-            {onOpenProgression && (
-              <button
-                onClick={onOpenProgression}
-                className="bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs px-3.5 py-2 rounded-xl border border-amber-200 shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0"
-              >
-                <TrendingUp className="w-4 h-4 text-amber-600" />
-                <span>Annual Progression</span>
-              </button>
-            )}
-
-            {/* 4. New Admission Button */}
-            <button
-              onClick={() => setShowAdmissionModal(true)}
-              className="bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs px-4 py-2 rounded-xl shadow-md shadow-orange-600/20 flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>New Admission</span>
-            </button>
-
-            {/* 5. CAP 6-Step Intake Wizard Button */}
-            {onOpenAdmissionWizard && (
-              <button
-                onClick={onOpenAdmissionWizard}
-                className="bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-xs px-4 py-2 rounded-xl shadow-md shadow-orange-600/20 flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>CAP Intake Wizard</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Clean status line */}
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Right: Live Count & Active Filters Indicator */}
+          <div className="flex items-center gap-2 justify-end text-xs text-slate-500 shrink-0">
             <span>
-              Showing <strong className="text-slate-900 font-bold">{filteredStudents.length}</strong> of{' '}
-              <strong className="text-slate-900 font-bold">
+              Showing <strong className="text-slate-900 font-extrabold">{filteredStudents.length}</strong> of{' '}
+              <strong className="text-slate-900 font-extrabold">
                 {branchFilter === 'SCHOOL'
                   ? schoolCount
                   : branchFilter === 'COLLEGE'
                   ? collegeCount
                   : students.length}
-              </strong> students
+              </strong>
             </span>
-            <span className="text-slate-300">•</span>
-            <span className="text-[11px] text-slate-500">
-              {branchFilter === 'SCHOOL'
-                ? 'Modern Public School & Jr College'
-                : branchFilter === 'COLLEGE'
-                ? 'Modern College of HM & Tech'
-                : 'All Campuses (Consolidated Roster)'}
-            </span>
+            {activeAdvancedFilterCount > 0 && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                {activeAdvancedFilterCount} active
+              </span>
+            )}
           </div>
-
-          {activeAdvancedFilterCount > 0 && (
-            <div className="flex items-center gap-1 text-[11px] text-orange-600 font-bold">
-              <span>{activeAdvancedFilterCount} filter(s) active</span>
-            </div>
-          )}
         </div>
       </div>
 
       {/* 4. Student Table (Dynamically tailored for School vs College vs All) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-500 font-bold">
-          <div>
-            Showing <strong className="text-slate-900">{filteredStudents.length}</strong> of{' '}
-            <strong className="text-slate-900">
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-slate-800">
               {branchFilter === 'SCHOOL'
-                ? schoolCount
+                ? 'School Students Roster (Classes & Standards)'
                 : branchFilter === 'COLLEGE'
-                ? collegeCount
-                : students.length}
-            </strong>{' '}
-            {branchFilter === 'SCHOOL'
-              ? 'School Students (Classes & Standards)'
-              : branchFilter === 'COLLEGE'
-              ? 'College Students (Hospitality & Tech)'
-              : 'Trust Students'}
+                ? 'College Students Roster (Hospitality & Tech)'
+                : 'Consolidated Trust Students Roster'}
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="text-[11px] text-slate-500 font-medium">
+              Academic Session {academicYear}
+            </span>
           </div>
           {searchQuery && (
-            <div className="text-[11px] text-orange-600">
-              Filtering by search: &ldquo;{searchQuery}&rdquo;
+            <div className="text-[11px] text-orange-600 font-bold">
+              Matching query: &ldquo;{searchQuery}&rdquo;
             </div>
           )}
         </div>
@@ -982,9 +1731,10 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                   </td>
                 </tr>
               ) : (
-                sortedStudents.map((stu, index) => {
+                paginatedStudents.map((stu, index) => {
                   const roleTag = stu.roleTag || 'STUDENT';
                   const isSchool = stu.branchId === 'branch-sch-01';
+                  const globalIndex = (studentPage - 1) * studentPageSize + index + 1;
 
                   if (branchFilter === 'SCHOOL') {
                     /* ============================================================ */
@@ -994,15 +1744,43 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                       <tr key={stu.id} className="hover:bg-slate-50/80 transition-colors">
                         {/* 0. Serial Number */}
                         <td className="py-3 px-3 text-center font-bold text-slate-500 font-mono text-xs">
-                          {index + 1}
+                          {globalIndex}
                         </td>
 
                         {/* 1. Student Name & Roll No */}
                         <td className="py-3 px-4">
-                          <div className="font-bold text-slate-900">{stu.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            {stu.admissionNo} &bull; Roll: {stu.rollNo}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-900">{stu.name}</span>
+                            {stu.nameMarathi && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-800 border border-orange-200 font-serif">
+                                {stu.nameMarathi}
+                              </span>
+                            )}
+                            {(stu.admissionType === 'Existing' || stu.isExistingStudent) ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200" title={`Historical Enrollment from ${stu.originalAdmissionYear || 'Earlier'}`}>
+                                🏛️ Existing ({stu.originalAdmissionYear?.slice(0, 4) || 'Enrolled'})
+                              </span>
+                            ) : (stu.admissionType === 'Transfer' || stu.previousSchool) ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-50 text-amber-800 border border-amber-300" title={`Transfer with LC from ${stu.previousSchool || 'Other School'}`}>
+                                🏛️ Transfer (LC)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                ✨ Fresh 26-27
+                              </span>
+                            )}
                           </div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            {stu.admissionNo} &bull; Roll: {stu.rollNo}
+                            {stu.grNumber && (
+                              <span className="ml-1 text-slate-600 font-semibold">• GR: {stu.grNumber}</span>
+                            )}
+                          </div>
+                          {(stu.admissionType === 'Transfer' || stu.previousSchool) && stu.previousSchool && (
+                            <div className="text-[10px] text-amber-700 font-semibold truncate max-w-xs mt-0.5" title={`Transfer from: ${stu.previousSchool}`}>
+                              From: {stu.previousSchool} {stu.previousLcNumber ? `(LC #${stu.previousLcNumber})` : ''}
+                            </div>
+                          )}
                         </td>
 
                         {/* 2. School Standard / Class */}
@@ -1080,6 +1858,15 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                               <Eye className="w-3 h-3 text-orange-600 group-hover:text-white" />
                               <span>Master</span>
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => setIdCardModalStudent(stu)}
+                              title="Generate and Print Student ID Card"
+                              className="bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-800 font-bold px-2 py-1 rounded-lg border border-amber-200 transition-all text-[10px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <IdCard className="w-3 h-3 text-amber-600 group-hover:text-white" />
+                              <span>ID Card</span>
+                            </button>
                             {onOpenProgression && (
                               <button
                                 type="button"
@@ -1134,15 +1921,43 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                       <tr key={stu.id} className="hover:bg-slate-50/80 transition-colors">
                         {/* 0. Serial Number */}
                         <td className="py-3 px-3 text-center font-bold text-slate-500 font-mono text-xs">
-                          {index + 1}
+                          {globalIndex}
                         </td>
 
                         {/* 1. Student Name & PRN No */}
                         <td className="py-3 px-4">
-                          <div className="font-bold text-slate-900">{stu.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            {stu.admissionNo} &bull; PRN: {stu.rollNo}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-900">{stu.name}</span>
+                            {stu.nameMarathi && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-800 border border-orange-200 font-serif">
+                                {stu.nameMarathi}
+                              </span>
+                            )}
+                            {(stu.admissionType === 'Existing' || stu.isExistingStudent) ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200" title={`Historical Enrollment from ${stu.originalAdmissionYear || 'Earlier'}`}>
+                                🏛️ Existing ({stu.originalAdmissionYear?.slice(0, 4) || 'Enrolled'})
+                              </span>
+                            ) : (stu.admissionType === 'Transfer' || stu.previousSchool) ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-50 text-amber-800 border border-amber-300" title={`Transfer with LC from ${stu.previousSchool || 'Other School'}`}>
+                                🏛️ Transfer (LC)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                ✨ Fresh 26-27
+                              </span>
+                            )}
                           </div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            {stu.admissionNo} &bull; PRN: {stu.prnNumber || stu.rollNo}
+                            {stu.grNumber && (
+                              <span className="ml-1 text-slate-600 font-semibold">• GR: {stu.grNumber}</span>
+                            )}
+                          </div>
+                          {(stu.admissionType === 'Transfer' || stu.previousSchool) && stu.previousSchool && (
+                            <div className="text-[10px] text-amber-700 font-semibold truncate max-w-xs mt-0.5" title={`Transfer from: ${stu.previousSchool}`}>
+                              From: {stu.previousSchool} {stu.previousLcNumber ? `(LC #${stu.previousLcNumber})` : ''}
+                            </div>
+                          )}
                         </td>
 
                         {/* 2. Degree Course & Semester */}
@@ -1219,6 +2034,15 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                             </button>
                             <button
                               type="button"
+                              onClick={() => setIdCardModalStudent(stu)}
+                              title="Generate and Print Student ID Card"
+                              className="bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-800 font-bold px-2 py-1 rounded-lg border border-amber-200 transition-all text-[10px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <IdCard className="w-3 h-3 text-amber-600" />
+                              <span>ID Card</span>
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => {
                                 setShowFeeModal(stu);
                                 setFeeAmount(stu.feePending > 0 ? String(stu.feePending) : '15000');
@@ -1259,15 +2083,43 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                     <tr key={stu.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* 0. Serial Number */}
                       <td className="py-3 px-3 text-center font-bold text-slate-500 font-mono text-xs">
-                        {index + 1}
+                        {globalIndex}
                       </td>
 
                       {/* Name & Roll No */}
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900">{stu.name}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          {stu.admissionNo} &bull; {stu.rollNo}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-900">{stu.name}</span>
+                          {stu.nameMarathi && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-800 border border-orange-200 font-serif">
+                              {stu.nameMarathi}
+                            </span>
+                          )}
+                          {(stu.admissionType === 'Existing' || stu.isExistingStudent) ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200" title={`Historical Enrollment from ${stu.originalAdmissionYear || 'Earlier'}`}>
+                              🏛️ Existing ({stu.originalAdmissionYear?.slice(0, 4) || 'Enrolled'})
+                            </span>
+                          ) : (stu.admissionType === 'Transfer' || stu.previousSchool) ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-50 text-amber-800 border border-amber-300" title={`Transfer with LC from ${stu.previousSchool || 'Other School'}`}>
+                              🏛️ Transfer (LC)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              ✨ Fresh 26-27
+                            </span>
+                          )}
                         </div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          {stu.admissionNo} &bull; {stu.rollNo}
+                          {stu.grNumber && (
+                            <span className="ml-1 text-slate-600 font-semibold">• GR: {stu.grNumber}</span>
+                          )}
+                        </div>
+                        {(stu.admissionType === 'Transfer' || stu.previousSchool) && stu.previousSchool && (
+                          <div className="text-[10px] text-amber-700 font-semibold truncate max-w-xs mt-0.5" title={`Transfer from: ${stu.previousSchool}`}>
+                            From: {stu.previousSchool} {stu.previousLcNumber ? `(LC #${stu.previousLcNumber})` : ''}
+                          </div>
+                        )}
                       </td>
 
                       {/* Branch Badge */}
@@ -1354,6 +2206,15 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                             <Eye className="w-3 h-3 text-orange-600" />
                             <span>Master</span>
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setIdCardModalStudent(stu)}
+                            title="Generate and Print Student ID Card"
+                            className="bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-800 font-bold px-2 py-1 rounded-lg border border-amber-200 transition-all text-[10px] inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <IdCard className="w-3 h-3 text-amber-600" />
+                            <span>ID Card</span>
+                          </button>
                           {isSchool && onOpenProgression && (
                             <button
                               type="button"
@@ -1376,6 +2237,48 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                             <CreditCard className="w-3 h-3" />
                             Collect
                           </button>
+                          {stu.feePaid > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const isSchoolBranch = stu.branchId === 'branch-sch-01';
+                                const rcp: FeeReceipt = {
+                                  id: `rcp-dir-${stu.id}`,
+                                  receiptNo: `RCP-${isSchoolBranch ? 'SCH' : 'HM'}-2026-${stu.admissionNo.replace(/\D/g, '').slice(-3) || '082'}`,
+                                  studentId: stu.id,
+                                  studentName: stu.name,
+                                  studentNameMarathi: stu.nameMarathi,
+                                  branchName: isSchoolBranch
+                                    ? 'Modern Public School And Junior College Bhose'
+                                    : 'Modern College Of Hotel Management And Technology Solapur',
+                                  standardOrGrade: stu.gradeOrSemester,
+                                  division: stu.division || 'A',
+                                  rollNo: stu.rollNo,
+                                  admissionNo: stu.admissionNo,
+                                  grNumber: stu.grNumber,
+                                  academicYear: '2026-2027',
+                                  parentName: stu.parentName || stu.fatherName,
+                                  parentPhone: stu.parentPhone,
+                                  category: stu.category || 'General',
+                                  amount: stu.feePaid,
+                                  totalAnnualFee: stu.feeTotal,
+                                  previouslyPaid: 0,
+                                  remainingBalance: stu.feePending,
+                                  paymentMode: 'UPI',
+                                  date: new Date().toISOString().split('T')[0],
+                                  installmentNo: 'Installment 1 & 2',
+                                  feeBreakdown: generateFeeBreakdown(stu.feePaid, isSchoolBranch ? 'SCHOOL' : 'COLLEGE'),
+                                  status: 'PAID',
+                                };
+                                setViewingReceipt(rcp);
+                              }}
+                              title="View & Print Official Fee Receipt"
+                              className="bg-orange-50 hover:bg-orange-600 hover:text-white text-orange-700 font-bold px-2 py-1 rounded-lg border border-orange-200 transition-all text-[10px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>Receipt</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setEditingStudent({ ...stu })}
@@ -1403,6 +2306,23 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Student Table Pagination Controls */}
+        <TablePagination
+          currentPage={studentPage}
+          totalItems={sortedStudents.length}
+          pageSize={studentPageSize}
+          pageSizeOptions={[5, 10, 25, 50, 100]}
+          onPageChange={setStudentPage}
+          onPageSizeChange={setStudentPageSize}
+          itemName={
+            branchFilter === 'SCHOOL'
+              ? 'school students'
+              : branchFilter === 'COLLEGE'
+              ? 'college students'
+              : 'students'
+          }
+        />
       </div>
 
       {/* 4. Advanced Filter Modal Drawer */}
@@ -1571,7 +2491,33 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                 </select>
               </div>
 
-              {/* Filter 10: Gender */}
+              {/* Filter 10: Student Intake / Enrollment Type */}
+              <div className="col-span-2">
+                <label className="block font-bold text-slate-700 mb-1">Student Intake / Enrollment Type</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { key: 'ALL', label: 'All Students' },
+                    { key: 'FRESH', label: '✨ Fresh (2026-27)' },
+                    { key: 'TRANSFER', label: '🏛️ Transfer (LC)' },
+                    { key: 'EXISTING', label: '🏛️ Existing / Historical' },
+                  ].map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setEnrollmentTypeFilter(t.key as any)}
+                      className={`py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                        enrollmentTypeFilter === t.key
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Filter 11: Gender */}
               <div className="col-span-2">
                 <label className="block font-bold text-slate-700 mb-1">Gender</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -1620,7 +2566,7 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-slate-200 animate-scale-in max-h-[92vh] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
                   <Upload className="w-5 h-5" />
@@ -1628,7 +2574,7 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                 <div>
                   <h3 className="font-extrabold text-base text-slate-900">Bulk Import Student Records</h3>
                   <p className="text-xs text-slate-500 font-medium">
-                    Upload CSV file or download the pre-formatted template
+                    Upload CSV file or download pre-formatted templates for fresh or existing students
                   </p>
                 </div>
               </div>
@@ -1644,63 +2590,157 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
               </button>
             </div>
 
-            {/* Body */}
-            <div className="overflow-y-auto py-4 space-y-4 pr-1 text-xs">
-              {/* Step 1 & 2 Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Step 1: Download Template */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Step 1</span>
-                    <h4 className="font-bold text-slate-800 text-sm mt-0.5">Standardized CSV Template</h4>
-                    <p className="text-slate-500 mt-1 leading-relaxed text-[11px]">
-                      Download our ready-to-fill CSV template with columns for roll no, name, PRN, Aadhaar, parent details and fees.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDownloadTemplate}
-                    className="mt-3 w-full bg-white hover:bg-slate-100 text-slate-800 font-bold px-3 py-2 rounded-xl border border-slate-300 shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5 text-orange-600" />
-                    <span>Download CSV Template</span>
-                  </button>
-                </div>
+            {/* Mode Switcher inside Import Modal */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl my-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setImportTab('FRESH')}
+                className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  importTab === 'FRESH'
+                    ? 'bg-white text-emerald-800 shadow-xs border border-emerald-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Fresh Admissions Intake (2026-27)</span>
+              </button>
 
-                {/* Step 2: Quick Test Batch */}
-                <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Quick Test</span>
-                    <h4 className="font-bold text-slate-800 text-sm mt-0.5">Load Verified Demo Batch</h4>
-                    <p className="text-slate-600 mt-1 leading-relaxed text-[11px]">
-                      Quickly test batch enrollment by loading pre-verified student records into the preview table below.
+              <button
+                type="button"
+                onClick={() => setImportTab('EXISTING')}
+                className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  importTab === 'EXISTING'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>Existing Students Migration (School & College)</span>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto py-2 space-y-4 pr-1 text-xs">
+              {importTab === 'EXISTING' ? (
+                /* EXISTING STUDENTS IMPORT SECTION */
+                <div className="space-y-4">
+                  <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-2xl">
+                    <div className="flex items-center gap-2 font-bold text-blue-900 text-xs">
+                      <BookmarkCheck className="w-4 h-4 text-blue-600" />
+                      <span>Historical Student Data Migration Protocol</span>
+                    </div>
+                    <p className="text-[11px] text-blue-800 mt-1 leading-relaxed">
+                      Onboard continuing students currently enrolled in Modern Public School or Modern College of Hotel Management. Includes historical General Register (GR) numbers, University/Board PRN, original intake academic sessions, and prior academic records.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleLoadSampleBatch}
-                    className="mt-3 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-2 rounded-xl shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Load 2 Demo Records</span>
-                  </button>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Step 1: Download Template */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Step 1</span>
+                        <h4 className="font-bold text-slate-800 text-sm mt-0.5">Existing Students CSV Template</h4>
+                        <p className="text-slate-500 mt-1 leading-relaxed text-[11px]">
+                          Download specialized CSV formatted with columns for original session admitted, historical GR No., PRN, and previous class percentages.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleDownloadExistingTemplate}
+                        className="mt-3 w-full bg-white hover:bg-slate-100 text-slate-800 font-bold px-3 py-2 rounded-xl border border-slate-300 shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Download Existing CSV Template</span>
+                      </button>
+                    </div>
+
+                    {/* Step 2: 1-Click Existing Batches */}
+                    <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200/80 flex flex-col justify-between">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">Quick Test Batches</span>
+                        <h4 className="font-bold text-slate-800 text-sm mt-0.5">Pre-verified Continuing Records</h4>
+                        <p className="text-slate-600 mt-1 leading-relaxed text-[11px]">
+                          Instantly load 4 verified continuing students with historical GR numbers and academic sessions into preview.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-3">
+                        <button
+                          type="button"
+                          onClick={handleLoadExistingSchoolBatch}
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] px-2.5 py-2 rounded-xl shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <School className="w-3.5 h-3.5" />
+                          <span>School Batch</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleLoadExistingCollegeBatch}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] px-2.5 py-2 rounded-xl shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <GraduationCap className="w-3.5 h-3.5" />
+                          <span>College Batch</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* FRESH INTAKE IMPORT SECTION */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Step 1: Download Template */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Step 1</span>
+                      <h4 className="font-bold text-slate-800 text-sm mt-0.5">Standardized CSV Template</h4>
+                      <p className="text-slate-500 mt-1 leading-relaxed text-[11px]">
+                        Download our ready-to-fill CSV template with columns for roll no, name, PRN, Aadhaar, parent details and fees.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDownloadTemplate}
+                      className="mt-3 w-full bg-white hover:bg-slate-100 text-slate-800 font-bold px-3 py-2 rounded-xl border border-slate-300 shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-orange-600" />
+                      <span>Download CSV Template</span>
+                    </button>
+                  </div>
+
+                  {/* Step 2: Quick Test Batch */}
+                  <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Quick Test</span>
+                      <h4 className="font-bold text-slate-800 text-sm mt-0.5">Load Verified Demo Batch</h4>
+                      <p className="text-slate-600 mt-1 leading-relaxed text-[11px]">
+                        Quickly test batch enrollment by loading pre-verified student records into the preview table below.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleLoadSampleBatch}
+                      className="mt-3 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-2 rounded-xl shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Load 2 Demo Records</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Step 3: File Upload Zone */}
-              <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-5 text-center bg-slate-50/50 hover:bg-emerald-50/30 transition-all cursor-pointer relative">
+              <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-4 text-center bg-slate-50/50 hover:bg-emerald-50/30 transition-all cursor-pointer relative">
                 <input
                   type="file"
                   accept=".csv,.txt"
                   onChange={handleFileChange}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
-                <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                <FileSpreadsheet className="w-7 h-7 text-slate-400 mx-auto mb-1.5" />
                 <p className="font-bold text-slate-700">
                   {importFileName ? importFileName : 'Click to upload or drag & drop CSV file'}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Supports CSV with UTF-8 encoding
+                  Supports UTF-8 CSV files (auto-detects fresh admissions vs existing student records)
                 </p>
               </div>
 
@@ -1729,11 +2769,11 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                       <thead className="bg-slate-100 text-slate-700 sticky top-0 font-bold text-[11px]">
                         <tr>
                           <th className="px-3 py-2 border-b border-slate-200">Roll</th>
-                          <th className="px-3 py-2 border-b border-slate-200">Name</th>
-                          <th className="px-3 py-2 border-b border-slate-200">Standard</th>
-                          <th className="px-3 py-2 border-b border-slate-200">Gender</th>
+                          <th className="px-3 py-2 border-b border-slate-200">Student Name</th>
+                          <th className="px-3 py-2 border-b border-slate-200">Intake Type</th>
+                          <th className="px-3 py-2 border-b border-slate-200">Standard / Sem</th>
+                          <th className="px-3 py-2 border-b border-slate-200">GR & PRN</th>
                           <th className="px-3 py-2 border-b border-slate-200">Parent</th>
-                          <th className="px-3 py-2 border-b border-slate-200">Aadhaar</th>
                           <th className="px-3 py-2 border-b border-slate-200">Fee Total</th>
                         </tr>
                       </thead>
@@ -1742,10 +2782,22 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                           <tr key={i} className="hover:bg-slate-50">
                             <td className="px-3 py-2 font-mono font-bold text-slate-700">{stu.rollNo}</td>
                             <td className="px-3 py-2 font-bold text-slate-900">{stu.name}</td>
+                            <td className="px-3 py-2">
+                              {stu.isExistingStudent || stu.admissionType === 'Existing' ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                  🏛️ Existing ({stu.originalAdmissionYear || 'Enrolled'})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  ✨ Fresh 26-27
+                                </span>
+                              )}
+                            </td>
                             <td className="px-3 py-2 text-slate-600">{stu.gradeOrSemester}</td>
-                            <td className="px-3 py-2 text-slate-600 capitalize">{stu.gender}</td>
+                            <td className="px-3 py-2 font-mono text-[10px] text-slate-700">
+                              {stu.grNumber || 'Auto-generate'}
+                            </td>
                             <td className="px-3 py-2 text-slate-600">{stu.parentName}</td>
-                            <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{stu.aadhaarNumber || '—'}</td>
                             <td className="px-3 py-2 font-bold text-slate-800">₹{Number(stu.feeTotal || 0).toLocaleString()}</td>
                           </tr>
                         ))}
@@ -1788,24 +2840,163 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
         </div>
       )}
 
-      {/* 5. Modal: New Student Admission with Aadhaar Number */}
+      {/* 5. Modal: Student Admission & Historical Existing Student Enrollment */}
       {showAdmissionModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 animate-scale-in max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 animate-scale-in max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-orange-600" />
-                New Student Admission & Identity Form
+                {admissionMode === 'EXISTING' || newStudent.admissionType === 'Existing' ? (
+                  <>
+                    <History className="w-5 h-5 text-blue-600" />
+                    <span>Enroll Existing / Continuing Student</span>
+                  </>
+                ) : admissionMode === 'TRANSFER' || newStudent.admissionType === 'Transfer' || newStudent.admissionType === 'Lateral' ? (
+                  <>
+                    <ArrowRightLeft className="w-5 h-5 text-amber-600" />
+                    <span>Transfer Student Admission (Rule 17 LC)</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-5 h-5 text-orange-600" />
+                    <span>New Student Admission & Identity Form</span>
+                  </>
+                )}
               </h3>
               <button
                 onClick={() => setShowAdmissionModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateAdmission} className="mt-4 space-y-3.5 text-xs">
+            {/* Segmented Mode Switcher (Fresh vs Transfer vs Existing) */}
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl my-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdmissionMode('FRESH');
+                  setNewStudent((prev) => ({ ...prev, isExistingStudent: false, admissionType: 'Fresh' }));
+                }}
+                className={`py-2 px-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  admissionMode === 'FRESH' && newStudent.admissionType !== 'Transfer' && newStudent.admissionType !== 'Existing'
+                    ? 'bg-white text-orange-700 shadow-xs border border-orange-200/60'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+                <span>Fresh (No LC)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAdmissionMode('TRANSFER');
+                  setNewStudent((prev) => ({ ...prev, isExistingStudent: false, admissionType: 'Transfer' }));
+                }}
+                className={`py-2 px-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  admissionMode === 'TRANSFER' || newStudent.admissionType === 'Transfer' || newStudent.admissionType === 'Lateral'
+                    ? 'bg-amber-600 text-white shadow-xs font-extrabold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>Transfer (LC / TC)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAdmissionMode('EXISTING');
+                  setNewStudent((prev) => ({ ...prev, isExistingStudent: true, admissionType: 'Existing' }));
+                }}
+                className={`py-2 px-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  admissionMode === 'EXISTING' || newStudent.admissionType === 'Existing'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>Enroll Existing</span>
+              </button>
+            </div>
+
+            {/* Fresh Admission Notice */}
+            {(admissionMode === 'FRESH' && newStudent.admissionType !== 'Transfer' && newStudent.admissionType !== 'Lateral' && newStudent.admissionType !== 'Existing') && (
+              <div className="p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl mb-3 flex items-center justify-between text-xs">
+                <span className="text-emerald-900 font-semibold flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Fresh Admission: Direct enrollment without prior school LC requirement.
+                </span>
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                  No LC Needed
+                </span>
+              </div>
+            )}
+
+            {/* Kaksha Plus 23 Transfer Admission Banner */}
+            {(admissionMode === 'TRANSFER' || newStudent.admissionType === 'Transfer' || newStudent.admissionType === 'Lateral') && (
+              <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-2xl space-y-2 mb-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-950 text-xs flex items-center gap-1.5">
+                    <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600" />
+                    Kaksha Plus 23 Transfer Admission Workflow
+                  </span>
+                  <span className="text-[10px] text-amber-800 font-bold bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                    Rule 17 LC Required
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-900 leading-relaxed">
+                  For students transferring from another school or college. Leaving Certificate (LC / TC) details, previous standard, leaving date and conduct will be recorded into General Register.
+                </p>
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleFillTransferPreset}
+                    className="text-[10px] font-bold bg-white text-amber-800 px-2.5 py-1 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
+                  >
+                    ⚡ Preset: Transfer Std 10 (LC from Barshi)
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Historical Continuity Banner for Existing Students */}
+            {(admissionMode === 'EXISTING' || newStudent.admissionType === 'Existing') && (
+              <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-2xl space-y-2 mb-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-900 text-xs flex items-center gap-1.5">
+                    <BookmarkCheck className="w-3.5 h-3.5 text-blue-600" />
+                    Historical Continuing Student Onboarding
+                  </span>
+                  <span className="text-[10px] text-blue-700 font-bold bg-blue-100 px-2 py-0.5 rounded-full">
+                    Continuing Scholar
+                  </span>
+                </div>
+                <p className="text-[11px] text-blue-800 leading-relaxed">
+                  Enter student already studying in Modern Public School or Modern College of Hotel Management with their permanent GR number and prior year academic history.
+                </p>
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleFillSchoolPreset}
+                    className="text-[10px] font-bold bg-white text-blue-700 px-2.5 py-1 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
+                  >
+                    ⚡ Preset: School Std 8 (Admitted 2022)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleFillCollegePreset}
+                    className="text-[10px] font-bold bg-white text-blue-700 px-2.5 py-1 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
+                  >
+                    ⚡ Preset: College Sem 4 (Admitted 2024)
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateAdmission} className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-bold text-slate-600 mb-1">Target Institution</label>
                 <select
@@ -1826,16 +3017,131 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-600 mb-1">Full Student Name</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-slate-600">Full Student Name (English) *</label>
+                  <span className="text-[10px] text-orange-600 font-bold bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
+                    ⚡ Auto-translates to Marathi
+                  </span>
+                </div>
                 <input
                   type="text"
-                  placeholder="e.g. Vihaan Sharma"
+                  placeholder="e.g. Vaishnavi Vishnu Itape"
                   value={newStudent.name}
-                  onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+                  onChange={(e) => {
+                    const nameVal = e.target.value;
+                    setNewStudent((prev) => ({
+                      ...prev,
+                      name: nameVal,
+                      nameMarathi: transliterateToMarathi(nameVal),
+                    }));
+                  }}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData.getData('text');
+                    if (pasted) {
+                      const target = e.target as HTMLInputElement;
+                      const start = target.selectionStart ?? 0;
+                      const end = target.selectionEnd ?? 0;
+                      const currentVal = target.value;
+                      const updatedVal = currentVal.substring(0, start) + pasted + currentVal.substring(end);
+                      setNewStudent((prev) => ({
+                        ...prev,
+                        name: updatedVal,
+                        nameMarathi: transliterateToMarathi(updatedVal),
+                      }));
+                    }
+                  }}
                   className="w-full font-bold px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-orange-500"
                   required
                 />
               </div>
+
+              <div>
+                <MarathiKeypadInput
+                  label="विद्यार्थ्याचे नाव मराठीत (Devanagari Name - LC / Bonafide साठी)"
+                  value={newStudent.nameMarathi || ''}
+                  onChange={(val) => setNewStudent({ ...newStudent, nameMarathi: val })}
+                  placeholder="उदा. वैष्णवी विष्णू इटपे..."
+                  helperText="Phonetic transliteration or click ⌨️ for full Indian Devanagari Keypad"
+                  quickWords={['पाटील', 'देशमुख', 'शिंदे', 'जाधव', 'पवार', 'कुलकर्णी', 'कदम', 'चव्हाण', 'गायकवाड', 'इटपे']}
+                />
+              </div>
+
+              {/* Dedicated Existing Student Historical Identifiers */}
+              {admissionMode === 'EXISTING' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Original Session Admitted</label>
+                    <select
+                      value={newStudent.originalAdmissionYear || '2023-2024'}
+                      onChange={(e) => setNewStudent({ ...newStudent, originalAdmissionYear: e.target.value })}
+                      className="w-full font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none"
+                    >
+                      <option value="2025-2026">2025-2026 (1 Year Prior)</option>
+                      <option value="2024-2025">2024-2025 (2 Years Prior)</option>
+                      <option value="2023-2024">2023-2024 (3 Years Prior)</option>
+                      <option value="2022-2023">2022-2023 (4 Years Prior)</option>
+                      <option value="2021-2022">2021-2022 (5 Years Prior)</option>
+                      <option value="2020-2021">2020-2021 or Earlier</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Existing G.R. Number (Book)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. GR-2022-0418"
+                      value={newStudent.grNumber || ''}
+                      onChange={(e) => setNewStudent({ ...newStudent, grNumber: e.target.value })}
+                      className="w-full font-mono font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">University / Board PRN No.</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. PRN-2022-0941"
+                      value={newStudent.prnNumber || ''}
+                      onChange={(e) => setNewStudent({ ...newStudent, prnNumber: e.target.value })}
+                      className="w-full font-mono font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Previous Class / Sem Passed</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Class 7-A / Sem 3"
+                      value={newStudent.previousClassOrSem || ''}
+                      onChange={(e) => setNewStudent({ ...newStudent, previousClassOrSem: e.target.value })}
+                      className="w-full font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Previous Year % / CGPA</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="e.g. 88.5"
+                      value={newStudent.previousYearPercentage || ''}
+                      onChange={(e) => setNewStudent({ ...newStudent, previousYearPercentage: Number(e.target.value) })}
+                      className="w-full font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Opening Arrears Balance (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={newStudent.openingFeeBalance || 0}
+                      onChange={(e) => setNewStudent({ ...newStudent, openingFeeBalance: Number(e.target.value) })}
+                      className="w-full font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Aadhaar Card Number Input */}
               <div className="grid grid-cols-2 gap-3">
@@ -1864,7 +3170,7 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-slate-600 mb-1">Gender</label>
                   <select
@@ -1879,7 +3185,7 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
 
                 <div>
                   <label className="block font-bold text-slate-600 mb-1">
-                    {newStudent.branchId === 'branch-sch-01' ? 'Standard / Class (From Masters)' : 'Degree Course & Semester (From Masters)'}
+                    {newStudent.branchId === 'branch-sch-01' ? 'Current Standard / Class' : 'Current Degree Course & Semester'}
                   </label>
                   <select
                     value={newStudent.gradeOrSemester}
@@ -1901,6 +3207,42 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                           {s.name} [ID: {s.id}]
                         </option>
                       ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-600 mb-1">Admission Type *</label>
+                  <select
+                    value={newStudent.admissionType || (admissionMode === 'TRANSFER' ? 'Transfer' : admissionMode === 'EXISTING' ? 'Existing' : 'Fresh')}
+                    onChange={(e) => {
+                      const val = e.target.value as 'Fresh' | 'Transfer' | 'Existing' | 'Lateral';
+                      const isTransfer = val === 'Transfer' || val === 'Lateral';
+                      const isExisting = val === 'Existing';
+                      setNewStudent((prev) => ({
+                        ...prev,
+                        admissionType: val,
+                        isExistingStudent: isExisting,
+                      }));
+                      if (isTransfer) {
+                        setAdmissionMode('TRANSFER');
+                      } else if (isExisting) {
+                        setAdmissionMode('EXISTING');
+                      } else {
+                        setAdmissionMode('FRESH');
+                      }
+                    }}
+                    className={`w-full font-bold px-3 py-2 rounded-xl border transition-all focus:outline-none focus:ring-2 ${
+                      newStudent.admissionType === 'Transfer' || admissionMode === 'TRANSFER'
+                        ? 'border-amber-400 bg-amber-50 text-amber-900 ring-amber-500 font-extrabold'
+                        : newStudent.admissionType === 'Existing' || admissionMode === 'EXISTING'
+                        ? 'border-blue-400 bg-blue-50 text-blue-900 ring-blue-500 font-extrabold'
+                        : 'border-slate-200 bg-slate-50 text-slate-800 ring-orange-500 font-bold'
+                    }`}
+                  >
+                    <option value="Fresh">✨ Fresh Admission (No LC)</option>
+                    <option value="Transfer">🏛️ Transfer Admission (Rule 17 LC / TC)</option>
+                    <option value="Existing">📜 Existing Continuing Student</option>
+                    <option value="Lateral">⚡ Lateral Entry (Direct Sem / Yr)</option>
                   </select>
                 </div>
               </div>
@@ -1929,14 +3271,188 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                 </div>
               )}
 
+              {/* Previous School & Transfer LC Details (Kaksha Plus 23 SIS Compliance) */}
+              {(admissionMode === 'TRANSFER' || newStudent.admissionType === 'Transfer' || newStudent.admissionType === 'Lateral') && (
+                <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200/90 space-y-3">
+                  <div className="flex items-center justify-between border-b border-amber-200/60 pb-1.5">
+                    <span className="font-bold text-amber-950 text-xs flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-amber-700" />
+                      Previous School & Transfer LC Records (Kaksha Plus Standard)
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                      Rule 17 LC Required
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block font-bold text-slate-700 mb-1">Previous School *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Shri Shivaji Vidyalaya, Barshi"
+                        value={newStudent.previousSchool || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, previousSchool: e.target.value })}
+                        className="w-full font-semibold px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        required={admissionMode === 'TRANSFER' || newStudent.admissionType === 'Transfer' || newStudent.admissionType === 'Lateral'}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Standard & Div. from which left *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Std 10 A"
+                        value={newStudent.standardDivLeft || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, standardDivLeft: e.target.value })}
+                        className="w-full font-semibold px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        required={admissionMode === 'TRANSFER' || newStudent.admissionType === 'Transfer' || newStudent.admissionType === 'Lateral'}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Original LC / TC Serial No</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. LC-2026-0914"
+                        value={newStudent.previousLcNumber || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, previousLcNumber: e.target.value })}
+                        className="w-full font-mono font-bold px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">School Leaving Date (dd-mm-yyyy) *</label>
+                      <input
+                        type="date"
+                        value={newStudent.schoolLeavingDate || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, schoolLeavingDate: e.target.value })}
+                        className="w-full font-mono font-bold px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        required={admissionMode === 'TRANSFER' || newStudent.admissionType === 'Transfer' || newStudent.admissionType === 'Lateral'}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">LC Received Date (dd-mm-yyyy) *</label>
+                      <input
+                        type="date"
+                        value={newStudent.lcReceivedDate || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, lcReceivedDate: e.target.value })}
+                        className="w-full font-mono font-bold px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        required={admissionMode === 'TRANSFER' || newStudent.admissionType === 'Transfer' || newStudent.admissionType === 'Lateral'}
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block font-bold text-slate-700 mb-1">Reason for Leaving</label>
+                      <input
+                        type="text"
+                        placeholder="Enter reason for leaving"
+                        value={newStudent.reasonForLeaving || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, reasonForLeaving: e.target.value })}
+                        className="w-full font-semibold px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Migration University</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Pune University"
+                        value={newStudent.migrationUniversity || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, migrationUniversity: e.target.value })}
+                        className="w-full font-semibold px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Voluntary Subject Special</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Physics"
+                        value={newStudent.voluntarySubjectSpecial || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, voluntarySubjectSpecial: e.target.value })}
+                        className="w-full font-semibold px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block font-bold text-slate-700">Progress in Studies</label>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {['Outstanding', 'Very Good', 'Good', 'Fair'].map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setNewStudent({ ...newStudent, previousProgress: p, progress: p })}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                              newStudent.previousProgress === p
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-white border border-amber-200 text-slate-600 hover:bg-amber-50'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="e.g. Good"
+                        value={newStudent.previousProgress || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, previousProgress: e.target.value, progress: e.target.value })}
+                        className="w-full font-semibold px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block font-bold text-slate-700">Conduct & Character</label>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {['Exemplary', 'Very Good', 'Good', 'Satisfactory'].map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setNewStudent({ ...newStudent, previousConduct: c, conduct: c })}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                              newStudent.previousConduct === c
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-white border border-amber-200 text-slate-600 hover:bg-amber-50'
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="e.g. Good"
+                        value={newStudent.previousConduct || ''}
+                        onChange={(e) => setNewStudent({ ...newStudent, previousConduct: e.target.value, conduct: e.target.value })}
+                        className="w-full font-semibold px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-600 mb-1">Parent Name</label>
+                  <label className="block font-bold text-slate-600 mb-1">Parent / Guardian Name</label>
                   <input
                     type="text"
                     placeholder="Guardian Name"
                     value={newStudent.parentName}
-                    onChange={(e) => setNewStudent({ ...newStudent, parentName: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewStudent((prev) => ({
+                        ...prev,
+                        parentName: val,
+                        fatherNameMarathi: !prev.fatherNameMarathi || prev.fatherNameMarathi === transliterateToMarathi(prev.parentName || '')
+                          ? transliterateToMarathi(val)
+                          : prev.fatherNameMarathi,
+                      }));
+                    }}
                     className="w-full font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none"
                   />
                 </div>
@@ -1951,6 +3467,24 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                     className="w-full font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <MarathiKeypadInput
+                  label="वडिलांचे नाव (मराठीत)"
+                  value={newStudent.fatherNameMarathi || ''}
+                  onChange={(val) => setNewStudent({ ...newStudent, fatherNameMarathi: val })}
+                  placeholder="उदा. राजेश शिंदे..."
+                  quickWords={['सुरेश', 'राजेश', 'सचिन', 'संजय', 'रमेश', 'महेश', 'अमोल']}
+                />
+
+                <MarathiKeypadInput
+                  label="आईचे नाव (मराठीत)"
+                  value={newStudent.motherNameMarathi || ''}
+                  onChange={(val) => setNewStudent({ ...newStudent, motherNameMarathi: val })}
+                  placeholder="उदा. सुनीता शिंदे..."
+                  quickWords={['सुनीता', 'अनिता', 'कविता', 'शारदा', 'रेखा', 'लता', 'पूजा']}
+                />
               </div>
 
               <div>
@@ -1968,15 +3502,25 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAdmissionModal(false)}
-                  className="px-4 py-2 rounded-xl font-bold text-slate-600 hover:bg-slate-100"
+                  className="px-4 py-2 rounded-xl font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-orange-600 hover:bg-orange-700 text-white font-extrabold px-5 py-2 rounded-xl shadow-md transition-all"
+                  className={`text-white font-extrabold px-5 py-2 rounded-xl shadow-md transition-all cursor-pointer ${
+                    admissionMode === 'EXISTING'
+                      ? 'bg-blue-600 hover:bg-blue-700'
+                      : admissionMode === 'TRANSFER'
+                      ? 'bg-amber-600 hover:bg-amber-700'
+                      : 'bg-orange-600 hover:bg-orange-700'
+                  }`}
                 >
-                  Confirm Admission
+                  {admissionMode === 'EXISTING'
+                    ? 'Confirm Existing Student Enrollment'
+                    : admissionMode === 'TRANSFER'
+                    ? 'Confirm Transfer Student Admission'
+                    : 'Confirm Fresh Student Admission'}
                 </button>
               </div>
             </form>
@@ -2063,6 +3607,15 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
         </div>
       )}
 
+      {/* Printable Fee Receipt Modal */}
+      {viewingReceipt && (
+        <PrintableFeeReceiptModal
+          receipt={viewingReceipt}
+          student={students.find((s) => s.id === viewingReceipt.studentId)}
+          onClose={() => setViewingReceipt(null)}
+        />
+      )}
+
       {/* 7. Modal: Full Student Master 360° Profile Drawer */}
       {selectedStudentProfile && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
@@ -2079,10 +3632,15 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                   className="w-14 h-14 rounded-2xl object-cover border-2 border-orange-500 shadow-xs shrink-0"
                 />
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-lg font-extrabold text-slate-900">
                       {selectedStudentProfile.name}
                     </h3>
+                    {selectedStudentProfile.nameMarathi && (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-lg bg-orange-100 text-orange-900 border border-orange-300 font-serif">
+                        {selectedStudentProfile.nameMarathi}
+                      </span>
+                    )}
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Verified Scholar
                     </span>
@@ -2147,6 +3705,22 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                     <span className="text-slate-400 block text-[10px] font-bold uppercase">Nationality</span>
                     <span className="font-bold text-slate-800">{selectedStudentProfile.nationality || 'India'}</span>
                   </div>
+                  <div>
+                    <span className="text-orange-700 block text-[10px] font-bold uppercase">नाव (मराठीत)</span>
+                    <span className="font-bold text-orange-950 font-serif">{selectedStudentProfile.nameMarathi || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-orange-700 block text-[10px] font-bold uppercase">वडिलांचे नाव (मराठीत)</span>
+                    <span className="font-bold text-orange-950 font-serif">{selectedStudentProfile.fatherNameMarathi || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-orange-700 block text-[10px] font-bold uppercase">आईचे नाव (मराठीत)</span>
+                    <span className="font-bold text-orange-950 font-serif">{selectedStudentProfile.motherNameMarathi || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-orange-700 block text-[10px] font-bold uppercase">जन्मस्थळ (मराठीत)</span>
+                    <span className="font-bold text-orange-950 font-serif">{selectedStudentProfile.placeOfBirthMarathi || '—'}</span>
+                  </div>
                 </div>
               </div>
 
@@ -2179,11 +3753,19 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px] font-bold uppercase">Admission Type</span>
-                    <span className="font-semibold text-slate-800">{selectedStudentProfile.admissionType || 'Fresh'}</span>
+                    <span className="font-semibold text-slate-800">
+                      {selectedStudentProfile.admissionType === 'Transfer'
+                        ? '🏛️ Transfer Admission (Rule 17 LC)'
+                        : selectedStudentProfile.admissionType === 'Existing' || selectedStudentProfile.isExistingStudent
+                        ? '🏛️ Existing / Continuing Student'
+                        : selectedStudentProfile.admissionType || '✨ Fresh Admission'}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px] font-bold uppercase">Admission Date</span>
-                    <span className="font-mono text-slate-800">{selectedStudentProfile.admissionDate || '2026-06-10'}</span>
+                    <span className="text-slate-400 block text-[10px] font-bold uppercase">Admission Date / Year</span>
+                    <span className="font-mono text-slate-800">
+                      {selectedStudentProfile.originalAdmissionYear || selectedStudentProfile.admissionDate || '2026-06-10'}
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px] font-bold uppercase">Roll No & Section</span>
@@ -2191,6 +3773,94 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Historical & Continuing Student Record Card if Existing */}
+              {(selectedStudentProfile.isExistingStudent || selectedStudentProfile.admissionType === 'Existing') && (
+                <div className="p-4 bg-blue-50/70 rounded-2xl border border-blue-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-blue-900 font-bold text-xs">
+                      <BookmarkCheck className="w-4 h-4 text-blue-600" />
+                      <span>Historical Academic & Continuity Onboarding Record</span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full border border-blue-200">
+                      Continuing Scholar
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
+                    <div>
+                      <span className="text-blue-500 block text-[10px] font-bold uppercase">Original Intake Session</span>
+                      <span className="font-bold text-blue-950">{selectedStudentProfile.originalAdmissionYear || '2023-2024'}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-500 block text-[10px] font-bold uppercase">Previous Class / Sem</span>
+                      <span className="font-bold text-blue-950">{selectedStudentProfile.previousClassOrSem || 'Previous Standard (Passed)'}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-500 block text-[10px] font-bold uppercase">Previous Academic % / GPA</span>
+                      <span className="font-bold text-emerald-700">{selectedStudentProfile.previousYearPercentage || 85}%</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-500 block text-[10px] font-bold uppercase">Legacy Onboarding Source</span>
+                      <span className="font-bold text-blue-950">{selectedStudentProfile.legacyEnrollmentSource || 'OLD_GR_REGISTER'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Previous School Transfer & Leaving Certificate (LC / TC) Record if Transfer */}
+              {(selectedStudentProfile.admissionType === 'Transfer' || selectedStudentProfile.admissionType === 'Lateral' || selectedStudentProfile.previousSchool) && (
+                <div className="p-4 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-amber-950 font-bold text-xs">
+                      <ArrowRightLeft className="w-4 h-4 text-amber-600" />
+                      <span>Previous School Transfer & Leaving Certificate (LC / TC) Record</span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full border border-amber-200">
+                      Rule 17 LC Compliance
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs pt-1">
+                    <div className="sm:col-span-2">
+                      <span className="text-amber-800/80 block text-[10px] font-bold uppercase">Previous School / College</span>
+                      <span className="font-bold text-slate-900">{selectedStudentProfile.previousSchool || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-amber-800/80 block text-[10px] font-bold uppercase">Standard & Div. Left</span>
+                      <span className="font-bold text-slate-900">{selectedStudentProfile.standardDivLeft || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-amber-800/80 block text-[10px] font-bold uppercase">School Leaving Date</span>
+                      <span className="font-mono font-bold text-slate-900">{selectedStudentProfile.schoolLeavingDate || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-amber-800/80 block text-[10px] font-bold uppercase">LC Received Date</span>
+                      <span className="font-mono font-bold text-slate-900">{selectedStudentProfile.lcReceivedDate || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-amber-800/80 block text-[10px] font-bold uppercase">Original LC / TC Serial No</span>
+                      <span className="font-mono font-bold text-slate-900">{selectedStudentProfile.previousLcNumber || '—'}</span>
+                    </div>
+                    <div className="sm:col-span-3">
+                      <span className="text-amber-800/80 block text-[10px] font-bold uppercase">Reason for Leaving</span>
+                      <span className="font-semibold text-slate-800">{selectedStudentProfile.reasonForLeaving || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-amber-800/80 block text-[10px] font-bold uppercase">Migration University / Board</span>
+                      <span className="font-semibold text-slate-900">{selectedStudentProfile.migrationUniversity || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-amber-800/80 block text-[10px] font-bold uppercase">Voluntary Subject Special</span>
+                      <span className="font-semibold text-slate-900">{selectedStudentProfile.voluntarySubjectSpecial || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-amber-800/80 block text-[10px] font-bold uppercase">Progress & Conduct</span>
+                      <span className="font-bold text-slate-900">
+                        {selectedStudentProfile.previousProgress || 'Good'} / {selectedStudentProfile.previousConduct || 'Good'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Section 3: Parents & Contacts */}
               <div className="space-y-3">
@@ -2352,6 +4022,57 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                 Statutory Student Master Ledger Archive &bull; Zep Foundation Bhose
               </span>
               <div className="flex items-center gap-2">
+                {selectedStudentProfile.feePaid > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const isSchoolBranch = selectedStudentProfile.branchId === 'branch-sch-01';
+                      const rcp: FeeReceipt = {
+                        id: `rcp-prof-${selectedStudentProfile.id}`,
+                        receiptNo: `RCP-${isSchoolBranch ? 'SCH' : 'HM'}-2026-${selectedStudentProfile.admissionNo.replace(/\D/g, '').slice(-3) || '101'}`,
+                        studentId: selectedStudentProfile.id,
+                        studentName: selectedStudentProfile.name,
+                        studentNameMarathi: selectedStudentProfile.nameMarathi,
+                        branchName: isSchoolBranch
+                          ? 'Modern Public School And Junior College Bhose'
+                          : 'Modern College Of Hotel Management And Technology Solapur',
+                        standardOrGrade: selectedStudentProfile.gradeOrSemester,
+                        division: selectedStudentProfile.division || 'A',
+                        rollNo: selectedStudentProfile.rollNo,
+                        admissionNo: selectedStudentProfile.admissionNo,
+                        grNumber: selectedStudentProfile.grNumber,
+                        academicYear: '2026-2027',
+                        parentName: selectedStudentProfile.parentName || selectedStudentProfile.fatherName,
+                        parentPhone: selectedStudentProfile.parentPhone,
+                        category: selectedStudentProfile.category || 'General',
+                        amount: selectedStudentProfile.feePaid,
+                        totalAnnualFee: selectedStudentProfile.feeTotal,
+                        previouslyPaid: 0,
+                        remainingBalance: selectedStudentProfile.feePending,
+                        paymentMode: 'UPI',
+                        date: new Date().toISOString().split('T')[0],
+                        installmentNo: 'Installment 1 & 2',
+                        feeBreakdown: generateFeeBreakdown(selectedStudentProfile.feePaid, isSchoolBranch ? 'SCHOOL' : 'COLLEGE'),
+                        status: 'PAID',
+                      };
+                      setViewingReceipt(rcp);
+                    }}
+                    className="px-3.5 py-2 rounded-xl text-xs font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 transition-colors shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-orange-600" />
+                    <span>Official Fee Receipt</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdCardModalStudent(selectedStudentProfile);
+                  }}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 transition-colors shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <IdCard className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Print ID Card</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -2429,7 +4150,37 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                       type="text"
                       required
                       value={editingStudent.name}
-                      onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditingStudent((prev) => {
+                          if (!prev) return prev;
+                          const shouldSyncMarathi = !prev.nameMarathi || prev.nameMarathi === transliterateToMarathi(prev.name || '');
+                          return {
+                            ...prev,
+                            name: val,
+                            nameMarathi: shouldSyncMarathi ? transliterateToMarathi(val) : prev.nameMarathi,
+                          };
+                        });
+                      }}
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData('text');
+                        if (pasted) {
+                          const target = e.target as HTMLInputElement;
+                          const start = target.selectionStart ?? 0;
+                          const end = target.selectionEnd ?? 0;
+                          const currentVal = target.value;
+                          const updatedVal = currentVal.substring(0, start) + pasted + currentVal.substring(end);
+                          setEditingStudent((prev) => {
+                            if (!prev) return prev;
+                            const shouldSyncMarathi = !prev.nameMarathi || prev.nameMarathi === transliterateToMarathi(prev.name || '');
+                            return {
+                              ...prev,
+                              name: updatedVal,
+                              nameMarathi: shouldSyncMarathi ? transliterateToMarathi(updatedVal) : prev.nameMarathi,
+                            };
+                          });
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-orange-500"
                     />
                   </div>
@@ -2573,7 +4324,188 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-orange-500 font-mono"
                     />
                   </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Admission Type</label>
+                    <select
+                      value={editingStudent.admissionType || 'Fresh'}
+                      onChange={(e) => {
+                        const val = e.target.value as any;
+                        setEditingStudent({
+                          ...editingStudent,
+                          admissionType: val,
+                          isExistingStudent: val === 'Existing',
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-orange-500 font-bold"
+                    >
+                      <option value="Fresh">✨ Fresh Admission (No LC)</option>
+                      <option value="Transfer">🏛️ Transfer Admission (Rule 17 LC)</option>
+                      <option value="Existing">📜 Existing Continuing Student</option>
+                      <option value="Lateral">⚡ Lateral Entry</option>
+                    </select>
+                  </div>
                 </div>
+
+                {/* Transfer Leaving Certificate (LC / TC) Details if Transfer */}
+                {(editingStudent.admissionType === 'Transfer' || editingStudent.admissionType === 'Lateral' || editingStudent.previousSchool) && (
+                  <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/90 space-y-3 mt-3">
+                    <div className="flex items-center justify-between border-b border-amber-200/60 pb-1.5">
+                      <span className="font-bold text-amber-950 text-xs flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-amber-700" />
+                        Previous School & Transfer LC Records (Kaksha Plus Standard)
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                        Rule 17 LC Required
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Previous School</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Shri Shivaji Vidyalaya, Barshi"
+                          value={editingStudent.previousSchool || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, previousSchool: e.target.value })}
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Standard & Div. from which left</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Std 10 A"
+                          value={editingStudent.standardDivLeft || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, standardDivLeft: e.target.value })}
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Original LC / TC Serial No</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. LC-2026-0914"
+                          value={editingStudent.previousLcNumber || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, previousLcNumber: e.target.value })}
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-white font-mono font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">School Leaving Date (dd-mm-yyyy)</label>
+                        <input
+                          type="date"
+                          value={editingStudent.schoolLeavingDate || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, schoolLeavingDate: e.target.value })}
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-white font-mono font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">LC Received Date (dd-mm-yyyy)</label>
+                        <input
+                          type="date"
+                          value={editingStudent.lcReceivedDate || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, lcReceivedDate: e.target.value })}
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-white font-mono font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Reason for Leaving</label>
+                        <input
+                          type="text"
+                          placeholder="Enter reason for leaving"
+                          value={editingStudent.reasonForLeaving || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, reasonForLeaving: e.target.value })}
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Migration University</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Pune University"
+                          value={editingStudent.migrationUniversity || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, migrationUniversity: e.target.value })}
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Voluntary Subject Special</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Physics"
+                          value={editingStudent.voluntarySubjectSpecial || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, voluntarySubjectSpecial: e.target.value })}
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[11px] font-bold text-slate-700">Progress in Studies</label>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mb-1">
+                          {['Outstanding', 'Very Good', 'Good', 'Fair'].map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              onClick={() => setEditingStudent({ ...editingStudent, previousProgress: p, progress: p })}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                                (editingStudent.previousProgress || editingStudent.progress) === p
+                                  ? 'bg-amber-600 text-white font-extrabold'
+                                  : 'bg-white border border-amber-200 text-slate-600 hover:bg-amber-50'
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="e.g. Good"
+                          value={editingStudent.previousProgress || editingStudent.progress || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, previousProgress: e.target.value, progress: e.target.value })}
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[11px] font-bold text-slate-700">Conduct & Character</label>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mb-1">
+                          {['Exemplary', 'Very Good', 'Good', 'Satisfactory'].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setEditingStudent({ ...editingStudent, previousConduct: c, conduct: c })}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                                (editingStudent.previousConduct || editingStudent.conduct) === c
+                                  ? 'bg-amber-600 text-white font-extrabold'
+                                  : 'bg-white border border-amber-200 text-slate-600 hover:bg-amber-50'
+                              }`}
+                            >
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="e.g. Good"
+                          value={editingStudent.previousConduct || editingStudent.conduct || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, previousConduct: e.target.value, conduct: e.target.value })}
+                          className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Parents & Contacts */}
@@ -2610,6 +4542,46 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-orange-500"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Statutory Marathi / Devanagari Record (For LC & Bonafide) */}
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 text-orange-600">
+                  <Languages className="w-3.5 h-3.5" /> 4. वैधानिक मराठी नोंद (Statutory Marathi Record - LC & Bonafide)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <MarathiKeypadInput
+                    label="विद्यार्थ्याचे नाव (मराठीत)"
+                    value={editingStudent.nameMarathi || ''}
+                    onChange={(val) => setEditingStudent({ ...editingStudent, nameMarathi: val })}
+                    placeholder="उदा. आरव पाटील..."
+                    quickWords={['पाटील', 'देशमुख', 'शिंदे', 'जाधव', 'पवार', 'कुलकर्णी', 'कदम', 'चव्हाण']}
+                  />
+
+                  <MarathiKeypadInput
+                    label="जन्मस्थळ (मराठीत)"
+                    value={editingStudent.placeOfBirthMarathi || ''}
+                    onChange={(val) => setEditingStudent({ ...editingStudent, placeOfBirthMarathi: val })}
+                    placeholder="उदा. सोलापूर / पुणे..."
+                    quickWords={['सोलापूर', 'पुणे', 'मुंबई', 'पंढरपूर', 'कोल्हापूर', 'सातारा']}
+                  />
+
+                  <MarathiKeypadInput
+                    label="वडिलांचे नाव (मराठीत)"
+                    value={editingStudent.fatherNameMarathi || ''}
+                    onChange={(val) => setEditingStudent({ ...editingStudent, fatherNameMarathi: val })}
+                    placeholder="उदा. सुरेश पाटील..."
+                    quickWords={['सुरेश', 'राजेश', 'सचिन', 'संजय', 'रमेश', 'महेश']}
+                  />
+
+                  <MarathiKeypadInput
+                    label="आईचे नाव (मराठीत)"
+                    value={editingStudent.motherNameMarathi || ''}
+                    onChange={(val) => setEditingStudent({ ...editingStudent, motherNameMarathi: val })}
+                    placeholder="उदा. सुनीता पाटील..."
+                    quickWords={['सुनीता', 'अनिता', 'कविता', 'शारदा', 'रेखा', 'लता']}
+                  />
                 </div>
               </div>
 
@@ -2865,6 +4837,19 @@ export const StudentDirectoryModule: React.FC<StudentDirectoryModuleProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* Printable ID Card Modal */}
+      {idCardModalStudent && (
+        <IdCardModal
+          cardData={studentToCardData(idCardModalStudent)}
+          isOpen={true}
+          onClose={() => setIdCardModalStudent(null)}
+          onPhotoUpdated={(studentId, newUrl) => {
+            if (onEditStudent) {
+              onEditStudent({ ...idCardModalStudent, profilePhotoUrl: newUrl });
+            }
+          }}
+        />
       )}
     </div>
   );

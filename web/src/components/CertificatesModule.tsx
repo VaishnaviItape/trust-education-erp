@@ -25,11 +25,16 @@ import {
   X,
   AlertTriangle,
   Save,
+  Languages,
 } from 'lucide-react';
 import { Student, IssuedCertificate, CertificateType } from '../types';
 import { formatDobInWords, getInstitutionDetails } from '../utils/documentUtils';
 import { FilterBar } from './FilterBar';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
+import { MarathiKeypadInput } from './MarathiKeypadInput';
+import { TrustLogo } from './TrustLogo';
+import { transliterateToMarathi } from '../utils/marathiTransliterate';
 
 export const CertificatesModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ARCHIVE_SEARCH' | 'STUDIO' | 'LEDGER' | 'VAULT_RACK'>('ARCHIVE_SEARCH');
@@ -45,6 +50,35 @@ export const CertificatesModule: React.FC = () => {
   // Currently selected student for document generation
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
+  // Marathi / Devanagari Names for LC & Bonafide Certificates
+  const [studentNameMr, setStudentNameMr] = useState('');
+  const [motherNameMr, setMotherNameMr] = useState('');
+  const [fatherNameMr, setFatherNameMr] = useState('');
+  const [placeOfBirthMr, setPlaceOfBirthMr] = useState('');
+
+  // Sync Marathi state whenever selectedStudent changes
+  useEffect(() => {
+    if (selectedStudent) {
+      setStudentNameMr(selectedStudent.nameMarathi || transliterateToMarathi(selectedStudent.name));
+      setMotherNameMr(
+        selectedStudent.motherNameMarathi ||
+          (selectedStudent.motherName ? transliterateToMarathi(selectedStudent.motherName) : '')
+      );
+      setFatherNameMr(
+        selectedStudent.fatherNameMarathi ||
+          (selectedStudent.fatherName
+            ? transliterateToMarathi(selectedStudent.fatherName)
+            : selectedStudent.parentName
+            ? transliterateToMarathi(selectedStudent.parentName)
+            : '')
+      );
+      setPlaceOfBirthMr(
+        selectedStudent.placeOfBirthMarathi ||
+          (selectedStudent.placeOfBirth ? transliterateToMarathi(selectedStudent.placeOfBirth) : '')
+      );
+    }
+  }, [selectedStudent]);
+
   // Document Studio State
   const [docType, setDocType] = useState<CertificateType>('TRANSFER_LEAVING');
   const [purpose, setPurpose] = useState('Passport Application & Embassy Visa Verification');
@@ -55,6 +89,13 @@ export const CertificatesModule: React.FC = () => {
   const [remarks, setRemarks] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // LC & Certificate Specific Evaluation Fields
+  const [progress, setProgress] = useState('Outstanding');
+  const [conduct, setConduct] = useState('Exemplary');
+  const [reasonForLeaving, setReasonForLeaving] = useState('Higher Studies Transfer');
+  const [leavingDate, setLeavingDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [leavingGrade, setLeavingGrade] = useState('');
 
   // Issued certificates ledger
   const [certificates, setCertificates] = useState<IssuedCertificate[]>([]);
@@ -126,6 +167,14 @@ export const CertificatesModule: React.FC = () => {
     defaultDirection: 'asc',
   });
 
+  const {
+    currentPage: rackPage,
+    setCurrentPage: setRackPage,
+    pageSize: rackPageSize,
+    setPageSize: setRackPageSize,
+    paginatedItems: paginatedRackDocuments,
+  } = usePagination(sortedRackDocuments, 10);
+
   // Fetch students from API
   const fetchStudents = async () => {
     setIsLoadingStudents(true);
@@ -181,6 +230,18 @@ export const CertificatesModule: React.FC = () => {
       } else {
         setSignatory('Principal Sunita Kulkarni');
       }
+
+      // Synchronize Progress, Conduct, and Leaving details
+      setProgress(selectedStudent.progress || selectedStudent.previousProgress || 'Outstanding');
+      setConduct(selectedStudent.conduct || selectedStudent.previousConduct || 'Exemplary');
+      setReasonForLeaving(
+        selectedStudent.reasonForLeaving ||
+          (selectedStudent.status === 'ALUMNI_PASSED'
+            ? 'Passed with Meritorious Record'
+            : 'Higher Studies Transfer')
+      );
+      setLeavingDate(selectedStudent.leavingDate || new Date().toISOString().slice(0, 10));
+      setLeavingGrade(selectedStudent.leavingGrade || selectedStudent.gradeOrSemester || '');
     }
   }, [selectedStudent, docType]);
 
@@ -245,31 +306,65 @@ export const CertificatesModule: React.FC = () => {
     const payload = {
       studentId: selectedStudent.id,
       studentName: selectedStudent.name,
+      studentNameMarathi: studentNameMr,
       grNumber: selectedStudent.grNumber || 'GR-ARCHIVE-UNALLOCATED',
       branchName: selectedStudent.branchName || instMeta.name,
-      gradeOrCourse: selectedStudent.leavingGrade || selectedStudent.gradeOrSemester,
+      gradeOrCourse: leavingGrade || selectedStudent.leavingGrade || selectedStudent.gradeOrSemester,
       certificateType: docType,
       academicYear: selectedStudent.academicYear || '2026-2027',
       motherName: selectedStudent.motherName || 'Verified on Record',
+      motherNameMarathi: motherNameMr,
       fatherName: selectedStudent.fatherName || selectedStudent.parentName || 'Verified on Record',
+      fatherNameMarathi: fatherNameMr,
       dob: selectedStudent.dob || '2000-01-01',
       dobWords: selectedStudent.dobWords || formatDobInWords(selectedStudent.dob),
       placeOfBirth: selectedStudent.placeOfBirth || 'Maharashtra, India',
+      placeOfBirthMarathi: placeOfBirthMr,
       nationality: selectedStudent.nationality || 'Indian',
       religion: selectedStudent.religion || 'Hindu',
       caste: selectedStudent.caste || 'General',
       admissionDate: selectedStudent.admissionDate || '2012-06-15',
       admissionGrade: selectedStudent.admissionGrade || 'Primary Standard',
-      leavingDate: selectedStudent.leavingDate || issueDate,
-      leavingGrade: selectedStudent.leavingGrade || selectedStudent.gradeOrSemester,
-      reasonForLeaving: selectedStudent.reasonForLeaving || (selectedStudent.status === 'ALUMNI_PASSED' ? 'Passed with Meritorious Record' : 'Higher Studies Transfer'),
-      progress: selectedStudent.progress || 'Outstanding',
-      conduct: selectedStudent.conduct || 'Exemplary',
+      leavingDate: leavingDate || selectedStudent.leavingDate || issueDate,
+      leavingGrade: leavingGrade || selectedStudent.leavingGrade || selectedStudent.gradeOrSemester,
+      reasonForLeaving: reasonForLeaving || selectedStudent.reasonForLeaving || (selectedStudent.status === 'ALUMNI_PASSED' ? 'Passed with Meritorious Record' : 'Higher Studies Transfer'),
+      progress: progress || selectedStudent.progress || 'Outstanding',
+      conduct: conduct || selectedStudent.conduct || 'Exemplary',
       purpose: activePurpose,
       isDuplicate,
       remarks: remarks || selectedStudent.remarks,
       signatoryName: signatory,
     };
+
+    // Update local student reference with Marathi names & LC evaluation fields
+    selectedStudent.nameMarathi = studentNameMr;
+    selectedStudent.motherNameMarathi = motherNameMr;
+    selectedStudent.fatherNameMarathi = fatherNameMr;
+    selectedStudent.placeOfBirthMarathi = placeOfBirthMr;
+    selectedStudent.progress = progress;
+    selectedStudent.conduct = conduct;
+    selectedStudent.reasonForLeaving = reasonForLeaving;
+    selectedStudent.leavingDate = leavingDate;
+    selectedStudent.leavingGrade = leavingGrade;
+
+    // Persist Marathi names and LC evaluation fields to student record in background
+    try {
+      fetch(`http://localhost:5000/api/students/${selectedStudent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nameMarathi: studentNameMr,
+          motherNameMarathi: motherNameMr,
+          fatherNameMarathi: fatherNameMr,
+          placeOfBirthMarathi: placeOfBirthMr,
+          progress,
+          conduct,
+          reasonForLeaving,
+          leavingDate,
+          leavingGrade,
+        }),
+      }).catch(() => {});
+    } catch {}
 
     try {
       const res = await fetch('http://localhost:5000/api/certificates/generate', {
@@ -304,6 +399,8 @@ export const CertificatesModule: React.FC = () => {
         certificateType: docType,
         studentId: selectedStudent.id,
         studentName: selectedStudent.name,
+        nameMarathi: studentNameMr,
+        studentNameMarathi: studentNameMr,
         grNumber: selectedStudent.grNumber,
         branchName: selectedStudent.branchName || instMeta.name,
         gradeOrCourse: selectedStudent.leavingGrade || selectedStudent.gradeOrSemester,
@@ -313,20 +410,23 @@ export const CertificatesModule: React.FC = () => {
         digitalSignatureHash: `SHA256:${btoa(selectedStudent.name + Date.now()).replace(/[^a-zA-Z0-9]/g, '').slice(0, 48)}`,
         qrVerificationUrl: `http://localhost:5000/verify/doc/cert-${prefix.toLowerCase()}-${Date.now()}`,
         motherName: selectedStudent.motherName,
+        motherNameMarathi: motherNameMr,
         fatherName: selectedStudent.fatherName || selectedStudent.parentName,
+        fatherNameMarathi: fatherNameMr,
         dob: selectedStudent.dob,
         dobWords: selectedStudent.dobWords || formatDobInWords(selectedStudent.dob),
         placeOfBirth: selectedStudent.placeOfBirth,
+        placeOfBirthMarathi: placeOfBirthMr,
         nationality: selectedStudent.nationality || 'Indian',
         religion: selectedStudent.religion,
         caste: selectedStudent.caste,
         admissionDate: selectedStudent.admissionDate,
         admissionGrade: selectedStudent.admissionGrade,
-        leavingDate: selectedStudent.leavingDate,
-        leavingGrade: selectedStudent.leavingGrade,
-        reasonForLeaving: selectedStudent.reasonForLeaving,
-        progress: selectedStudent.progress || 'Outstanding',
-        conduct: selectedStudent.conduct || 'Exemplary',
+        leavingDate: leavingDate || selectedStudent.leavingDate || issueDate,
+        leavingGrade: leavingGrade || selectedStudent.leavingGrade || selectedStudent.gradeOrSemester,
+        reasonForLeaving: reasonForLeaving || selectedStudent.reasonForLeaving,
+        progress: progress || selectedStudent.progress || 'Outstanding',
+        conduct: conduct || selectedStudent.conduct || 'Exemplary',
         purpose: activePurpose,
         isDuplicate,
         remarks: remarks || selectedStudent.remarks,
@@ -380,14 +480,14 @@ export const CertificatesModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs - Clean White Light Mode */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+      {/* Navigation Tabs - Horizontal Scroll at 135% Font Scales (Never overlaps or breaks layout) */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto erp-header-scroll">
         <button
           onClick={() => setActiveTab('ARCHIVE_SEARCH')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 whitespace-nowrap cursor-pointer ${
             activeTab === 'ARCHIVE_SEARCH'
-              ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <Search className="w-4 h-4" />
@@ -396,16 +496,16 @@ export const CertificatesModule: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('STUDIO')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 whitespace-nowrap cursor-pointer ${
             activeTab === 'STUDIO'
-              ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <FileText className="w-4 h-4" />
           Official Document Generator Studio
           {selectedStudent && (
-            <span className="px-2 py-0.5 rounded-full bg-orange-200/60 text-orange-800 text-[10px]">
+            <span className="px-2 py-0.5 rounded-full bg-orange-200/60 dark:bg-orange-900/60 text-orange-800 dark:text-orange-200 text-[10px]">
               {selectedStudent.name.split(' ')[0]}
             </span>
           )}
@@ -413,10 +513,10 @@ export const CertificatesModule: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('LEDGER')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 whitespace-nowrap cursor-pointer ${
             activeTab === 'LEDGER'
-              ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <Award className="w-4 h-4" />
@@ -425,10 +525,10 @@ export const CertificatesModule: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('VAULT_RACK')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 whitespace-nowrap cursor-pointer ${
             activeTab === 'VAULT_RACK'
-              ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <Archive className="w-4 h-4" />
@@ -544,7 +644,14 @@ export const CertificatesModule: React.FC = () => {
 
                   {/* Student Name & Basic Info */}
                   <div>
-                    <h3 className="text-base font-black text-slate-900">{stu.name}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-black text-slate-900">{stu.name}</h3>
+                      {stu.nameMarathi && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-orange-100 text-orange-900 border border-orange-300 font-serif">
+                          {stu.nameMarathi}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-slate-600 font-medium mt-0.5">
                       {stu.branchName || (stu.branchId === 'branch-sch-01' ? 'Modern Public School & Jr College Bhose' : 'Modern College of HM & Tech Solapur')}
                     </div>
@@ -675,6 +782,67 @@ export const CertificatesModule: React.FC = () => {
               )}
             </div>
 
+            {/* Statutory Marathi / Devanagari Record with Indian Keypad */}
+            {selectedStudent && (
+              <div className="bg-gradient-to-br from-orange-50/80 via-amber-50/40 to-white border-2 border-orange-200/90 rounded-3xl p-5 shadow-sm space-y-4">
+                <div className="flex items-start justify-between gap-3 border-b border-orange-200/70 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-orange-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                      <Languages className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-2 flex-wrap">
+                        <span>वैधानिक मराठी नोंद (Devanagari Record)</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-300">
+                          LC / TC & Bonafide
+                        </span>
+                      </h4>
+                      <p className="text-[10px] text-slate-600 mt-0.5">
+                        शाळा सोडल्याचा दाखला (LC) व बोनाफाईड प्रमाणपत्रासाठी मराठी नाव, पालकांचे नाव व जन्मस्थळ नोंदवा.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <MarathiKeypadInput
+                    label="विद्यार्थ्याचे संपूर्ण नाव (मराठीत) *"
+                    value={studentNameMr}
+                    onChange={setStudentNameMr}
+                    placeholder="उदा. आरव सुरेश पाटील..."
+                    helperText="English typing auto-converts to Marathi (e.g. 'aarav patil' -> 'आरव पाटील'). Use ⌨️ for Indian Keypad."
+                    quickWords={['पाटील', 'देशमुख', 'शिंदे', 'जाधव', 'पवार', 'कुलकर्णी', 'कदम', 'चव्हाण', 'गायकवाड', 'मोरे']}
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <MarathiKeypadInput
+                      label="आईचे नाव (मराठीत)"
+                      value={motherNameMr}
+                      onChange={setMotherNameMr}
+                      placeholder="उदा. सुनीता / अनिता..."
+                      quickWords={['सुनीता', 'अनिता', 'कविता', 'शारदा', 'रेखा', 'लता', 'पूजा', 'मीना']}
+                    />
+
+                    <MarathiKeypadInput
+                      label="वडिलांचे नाव (मराठीत)"
+                      value={fatherNameMr}
+                      onChange={setFatherNameMr}
+                      placeholder="उदा. सुरेश / राजेश..."
+                      quickWords={['सुरेश', 'राजेश', 'सचिन', 'संजय', 'रमेश', 'महेश', 'अमोल', 'नितीन']}
+                    />
+                  </div>
+
+                  <MarathiKeypadInput
+                    label="जन्मस्थळ (मराठीत)"
+                    value={placeOfBirthMr}
+                    onChange={setPlaceOfBirthMr}
+                    placeholder="उदा. सोलापूर / पुणे / मुंबई..."
+                    quickWords={['सोलापूर', 'पुणे', 'मुंबई', 'पंढरपूर', 'कोल्हापूर', 'सातारा', 'लातूर', 'भोसे', 'नांदेड']}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Document Configuration Form */}
             <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -761,6 +929,155 @@ export const CertificatesModule: React.FC = () => {
                   />
                 )}
               </div>
+
+              {/* Transfer / Leaving Certificate (LC) & Character Evaluation Details */}
+              {(docType === 'TRANSFER_LEAVING' || docType === 'CHARACTER') && (
+                <div className="p-3.5 bg-gradient-to-br from-orange-50/80 to-amber-50/60 rounded-2xl border border-orange-200/90 space-y-3.5 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-orange-200/70 pb-2">
+                    <span className="font-extrabold text-orange-950 text-xs flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+                      LC Evaluation & Conduct Notations (महाराष्ट्र शासन मानक)
+                    </span>
+                    <span className="text-[10px] font-bold text-orange-800 bg-orange-100/80 px-2.5 py-0.5 rounded-full border border-orange-200">
+                      Rule 17 / SIS
+                    </span>
+                  </div>
+
+                  {/* Progress Field */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                        Progress in Studies (अभ्यासातील प्रगती) <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-medium">Quick presets:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      {['Outstanding', 'Excellent', 'Very Good', 'Good', 'Satisfactory'].map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setProgress(p)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            progress === p
+                              ? 'bg-orange-600 text-white shadow-xs'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:border-orange-300'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={progress}
+                      onChange={(e) => setProgress(e.target.value)}
+                      placeholder="e.g. Outstanding / Good / Very Good"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:border-orange-500 shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Conduct Field */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                        Conduct & Character (वर्तणूक) <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-medium">Quick presets:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      {['Exemplary', 'Very Good', 'Good', 'Satisfactory', 'Clean & Moral'].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setConduct(c)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            conduct === c
+                              ? 'bg-orange-600 text-white shadow-xs'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:border-orange-300'
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={conduct}
+                      onChange={(e) => setConduct(e.target.value)}
+                      placeholder="e.g. Exemplary / Good / Clean & Moral"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:border-orange-500 shadow-2xs"
+                    />
+                  </div>
+
+                  {docType === 'TRANSFER_LEAVING' && (
+                    <>
+                      {/* Date of Leaving & Standard Left */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            Date of Leaving School/College
+                          </label>
+                          <input
+                            type="date"
+                            value={leavingDate}
+                            onChange={(e) => setLeavingDate(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-800 font-medium focus:outline-none focus:border-orange-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            Standard Studying / Left
+                          </label>
+                          <input
+                            type="text"
+                            value={leavingGrade}
+                            onChange={(e) => setLeavingGrade(e.target.value)}
+                            placeholder="e.g. 10th Standard A"
+                            className="w-full px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-800 font-medium focus:outline-none focus:border-orange-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Reason for Leaving */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-bold text-slate-700">
+                            Reason for Leaving (शाळा सोडल्याचे कारण)
+                          </label>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mb-1.5">
+                          {[
+                            'Completed Course / Passed Out',
+                            'Higher Studies Transfer',
+                            'Parent Job Relocation',
+                            'Parent Personal Request',
+                          ].map((r) => (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => setReasonForLeaving(r)}
+                              className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-all cursor-pointer ${
+                                reasonForLeaving === r
+                                  ? 'bg-orange-600 text-white font-bold'
+                                  : 'bg-white border border-slate-200 text-slate-600 hover:border-orange-300'
+                              }`}
+                            >
+                              {r}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          type="text"
+                          value={reasonForLeaving}
+                          onChange={(e) => setReasonForLeaving(e.target.value)}
+                          placeholder="e.g. Completed SSC / Higher Studies Transfer"
+                          className="w-full px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-800 font-medium focus:outline-none focus:border-orange-500"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Duplicate Stamp Toggle (Statutory requirement for 10+ year alumni) */}
               <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200 flex items-center justify-between">
@@ -878,23 +1195,29 @@ export const CertificatesModule: React.FC = () => {
                   {(() => {
                     const inst = getInstitutionDetails(selectedStudent.branchName);
                     return (
-                      <div className="text-center border-b-2 border-slate-800 pb-4 space-y-1">
-                        <div className="text-[11px] font-sans font-bold tracking-widest text-orange-700 uppercase">
-                          {inst.trustName}
-                        </div>
-                        <div className="text-[9px] font-sans text-slate-500">{inst.trustRegistration}</div>
-                        <h2 className="text-xl font-black uppercase tracking-tight text-slate-950 font-sans mt-1">
-                          {inst.name}
-                        </h2>
-                        <div className="text-[10px] font-sans font-medium text-slate-600">
-                          {inst.address}, {inst.city} - {inst.pincode} • Phone: {inst.phone}
-                        </div>
-                        <div className="text-[9px] font-sans font-bold text-slate-700 flex flex-wrap items-center justify-center gap-3 pt-0.5">
-                          <span>{inst.affiliationNo}</span>
-                          <span>•</span>
-                          <span>{inst.udiseCode}</span>
-                          <span>•</span>
-                          <span>{inst.indexNo}</span>
+                      <div className="border-b-2 border-slate-800 pb-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <TrustLogo variant="crest" size="md" />
+                          <div className="text-center flex-1 space-y-1">
+                            <div className="text-[11px] font-sans font-bold tracking-widest text-orange-700 uppercase">
+                              {inst.trustName}
+                            </div>
+                            <div className="text-[9px] font-sans text-slate-500">{inst.trustRegistration}</div>
+                            <h2 className="text-xl font-black uppercase tracking-tight text-slate-950 font-sans mt-0.5">
+                              {inst.name}
+                            </h2>
+                            <div className="text-[10px] font-sans font-medium text-slate-600">
+                              {inst.address}, {inst.city} - {inst.pincode} • Phone: {inst.phone}
+                            </div>
+                            <div className="text-[9px] font-sans font-bold text-slate-700 flex flex-wrap items-center justify-center gap-3 pt-0.5">
+                              <span>{inst.affiliationNo}</span>
+                              <span>•</span>
+                              <span>{inst.udiseCode}</span>
+                              <span>•</span>
+                              <span>{inst.indexNo}</span>
+                            </div>
+                          </div>
+                          <TrustLogo variant="emblem" size="md" />
                         </div>
                       </div>
                     );
@@ -941,15 +1264,36 @@ export const CertificatesModule: React.FC = () => {
                     <div className="border border-slate-700 text-xs font-sans divide-y divide-slate-300">
                       <div className="grid grid-cols-12 p-2">
                         <div className="col-span-5 text-slate-600">1. Name of Pupil in Full:</div>
-                        <div className="col-span-7 font-bold text-slate-900 uppercase">{selectedStudent.name}</div>
+                        <div className="col-span-7">
+                          <div className="font-bold text-slate-900 uppercase">{selectedStudent.name}</div>
+                          {studentNameMr && (
+                            <div className="text-xs font-semibold text-orange-950 font-serif mt-0.5">
+                              मराठीत: <span className="font-bold">{studentNameMr}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-12 p-2">
                         <div className="col-span-5 text-slate-600">2. Mother's Name:</div>
-                        <div className="col-span-7 font-bold text-slate-900">{selectedStudent.motherName || 'Verified on Record'}</div>
+                        <div className="col-span-7">
+                          <div className="font-bold text-slate-900">{selectedStudent.motherName || 'Verified on Record'}</div>
+                          {motherNameMr && (
+                            <div className="text-xs font-semibold text-orange-950 font-serif mt-0.5">
+                              मराठीत: <span className="font-bold">{motherNameMr}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-12 p-2">
                         <div className="col-span-5 text-slate-600">3. Father's / Guardian's Name:</div>
-                        <div className="col-span-7 font-semibold text-slate-900">{selectedStudent.fatherName || selectedStudent.parentName}</div>
+                        <div className="col-span-7">
+                          <div className="font-semibold text-slate-900">{selectedStudent.fatherName || selectedStudent.parentName}</div>
+                          {fatherNameMr && (
+                            <div className="text-xs font-semibold text-orange-950 font-serif mt-0.5">
+                              मराठीत: <span className="font-bold">{fatherNameMr}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-12 p-2">
                         <div className="col-span-5 text-slate-600">4. Nationality & Religion:</div>
@@ -961,7 +1305,14 @@ export const CertificatesModule: React.FC = () => {
                       </div>
                       <div className="grid grid-cols-12 p-2">
                         <div className="col-span-5 text-slate-600">6. Place of Birth:</div>
-                        <div className="col-span-7 font-medium text-slate-900">{selectedStudent.placeOfBirth || 'Maharashtra, India'}</div>
+                        <div className="col-span-7">
+                          <div className="font-medium text-slate-900">{selectedStudent.placeOfBirth || 'Maharashtra, India'}</div>
+                          {placeOfBirthMr && (
+                            <div className="text-xs font-semibold text-orange-950 font-serif mt-0.5">
+                              मराठीत: <span className="font-bold">{placeOfBirthMr}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-12 p-2 bg-slate-50">
                         <div className="col-span-5 text-slate-600">7. Date of Birth (Figures & Words):</div>
@@ -983,20 +1334,20 @@ export const CertificatesModule: React.FC = () => {
                       <div className="grid grid-cols-12 p-2">
                         <div className="col-span-5 text-slate-600">10. Progress in Studies & Conduct:</div>
                         <div className="col-span-7 text-slate-900">
-                          Progress: <strong>{selectedStudent.progress || 'Outstanding'}</strong> • Conduct: <strong>{selectedStudent.conduct || 'Exemplary'}</strong>
+                          Progress: <strong className="text-orange-950 font-bold">{progress || selectedStudent.progress || 'Outstanding'}</strong> • Conduct: <strong className="text-orange-950 font-bold">{conduct || selectedStudent.conduct || 'Exemplary'}</strong>
                         </div>
                       </div>
                       <div className="grid grid-cols-12 p-2">
                         <div className="col-span-5 text-slate-600">11. Date of Leaving School/College:</div>
-                        <div className="col-span-7 font-bold text-slate-900">{selectedStudent.leavingDate || issueDate}</div>
+                        <div className="col-span-7 font-bold text-slate-900">{leavingDate || selectedStudent.leavingDate || issueDate}</div>
                       </div>
                       <div className="grid grid-cols-12 p-2">
                         <div className="col-span-5 text-slate-600">12. Standard in which Studying / Left:</div>
-                        <div className="col-span-7 font-bold text-slate-900">{selectedStudent.leavingGrade || selectedStudent.gradeOrSemester}</div>
+                        <div className="col-span-7 font-bold text-slate-900">{leavingGrade || selectedStudent.leavingGrade || selectedStudent.gradeOrSemester}</div>
                       </div>
                       <div className="grid grid-cols-12 p-2">
                         <div className="col-span-5 text-slate-600">13. Reason for Leaving School/College:</div>
-                        <div className="col-span-7 font-medium text-slate-900">{selectedStudent.reasonForLeaving || 'Passed Out / Higher Studies'}</div>
+                        <div className="col-span-7 font-medium text-slate-900">{reasonForLeaving || selectedStudent.reasonForLeaving || 'Passed Out / Higher Studies'}</div>
                       </div>
                       <div className="grid grid-cols-12 p-2 bg-slate-50">
                         <div className="col-span-5 text-slate-600">14. Remarks & Dues Clearance:</div>
@@ -1009,17 +1360,42 @@ export const CertificatesModule: React.FC = () => {
                   {docType === 'BONAFIDE' && (
                     <div className="text-sm font-sans leading-relaxed text-slate-800 space-y-4 py-2">
                       <p>
-                        This is to officially certify that <strong>{selectedStudent.name}</strong>, Son/Daughter of{' '}
-                        <strong>{selectedStudent.motherName || 'Verified Parent'}</strong> and{' '}
-                        <strong>{selectedStudent.fatherName || selectedStudent.parentName}</strong>, bearing General
-                        Register (G.R.) No. <strong>{selectedStudent.grNumber || 'GR-ARCHIVE'}</strong>, is / was a
-                        bonafide regular scholar of this institution.
+                        This is to officially certify that <strong>{selectedStudent.name}</strong>{' '}
+                        {studentNameMr && (
+                          <span className="font-serif font-bold text-orange-950">
+                            (मराठीत: {studentNameMr})
+                          </span>
+                        )}
+                        , Son/Daughter of{' '}
+                        <strong>{selectedStudent.motherName || 'Verified Parent'}</strong>{' '}
+                        {motherNameMr && (
+                          <span className="font-serif font-semibold text-slate-800">
+                            ({motherNameMr})
+                          </span>
+                        )}{' '}
+                        and{' '}
+                        <strong>{selectedStudent.fatherName || selectedStudent.parentName}</strong>{' '}
+                        {fatherNameMr && (
+                          <span className="font-serif font-semibold text-slate-800">
+                            ({fatherNameMr})
+                          </span>
+                        )}
+                        , bearing General Register (G.R.) No.{' '}
+                        <strong>{selectedStudent.grNumber || 'GR-ARCHIVE'}</strong>, is / was a bonafide
+                        regular scholar of this institution.
                       </p>
 
                       <p>
                         According to the official Perpetual Register of this institution, their Date of Birth is{' '}
                         <strong>{selectedStudent.dob || '2000-01-01'}</strong> (in words:{' '}
-                        <em>{selectedStudent.dobWords || formatDobInWords(selectedStudent.dob)}</em>).
+                        <em>{selectedStudent.dobWords || formatDobInWords(selectedStudent.dob)}</em>)
+                        {placeOfBirthMr ? (
+                          <>
+                            , born at <strong>{selectedStudent.placeOfBirth || 'Maharashtra'}</strong>{' '}
+                            <span className="font-serif text-slate-900">({placeOfBirthMr})</span>
+                          </>
+                        ) : null}
+                        .
                       </p>
 
                       <p>
@@ -1051,8 +1427,14 @@ export const CertificatesModule: React.FC = () => {
                   {docType === 'CHARACTER' && (
                     <div className="text-sm font-sans leading-relaxed text-slate-800 space-y-4 py-2">
                       <p>
-                        This is to certify that <strong>{selectedStudent.name}</strong> was a scholar of this institution
-                        enrolled in <strong>{selectedStudent.gradeOrSemester}</strong> during the academic period{' '}
+                        This is to certify that <strong>{selectedStudent.name}</strong>{' '}
+                        {studentNameMr && (
+                          <span className="font-serif font-bold text-orange-950">
+                            (मराठीत: {studentNameMr})
+                          </span>
+                        )}{' '}
+                        was a scholar of this institution enrolled in{' '}
+                        <strong>{selectedStudent.gradeOrSemester}</strong> during the academic period{' '}
                         <strong>{selectedStudent.academicYear}</strong>.
                       </p>
                       <p>
@@ -1066,8 +1448,8 @@ export const CertificatesModule: React.FC = () => {
                       </p>
                       <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
                         <strong>Official Evaluation:</strong> Conduct:{' '}
-                        <strong>{selectedStudent.conduct || 'Exemplary'}</strong> • Academic Progress:{' '}
-                        <strong>{selectedStudent.progress || 'Outstanding'}</strong>
+                        <strong className="text-orange-950 font-bold">{conduct || selectedStudent.conduct || 'Exemplary'}</strong> • Academic Progress:{' '}
+                        <strong className="text-orange-950 font-bold">{progress || selectedStudent.progress || 'Outstanding'}</strong>
                       </div>
                     </div>
                   )}
@@ -1247,6 +1629,12 @@ export const CertificatesModule: React.FC = () => {
                   </div>
                   <div>Issue Date: {cert.issueDate} • Signer: {cert.issuedBy}</div>
                   {cert.grNumber && <div>GR Number: <strong>{cert.grNumber}</strong></div>}
+                  {(cert.progress || cert.conduct) && (
+                    <div className="text-[10px] font-sans font-semibold text-slate-700 bg-orange-50/70 p-1.5 rounded-lg border border-orange-200/60 flex items-center justify-between">
+                      <span>Progress: <strong className="text-orange-900">{cert.progress || 'Good'}</strong></span>
+                      <span>Conduct: <strong className="text-orange-900">{cert.conduct || 'Exemplary'}</strong></span>
+                    </div>
+                  )}
                   {cert.isDuplicate && (
                     <div className="text-red-700 font-sans font-bold text-[10px]">
                       ⚠️ STATUTORY DUPLICATE COPY
@@ -1334,50 +1722,64 @@ export const CertificatesModule: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {sortedRackDocuments.map((doc, index) => (
-                  <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
-                    <td className="p-3.5">
-                      <div className="font-bold text-slate-900">{doc.studentName}</div>
-                      <div className="text-[10px] font-mono text-slate-500">{doc.admissionNo}</div>
-                    </td>
-                    <td className="p-3.5 text-slate-800 font-medium">{doc.documentTitle}</td>
-                    <td className="p-3.5 text-slate-600">{doc.cupboard}</td>
-                    <td className="p-3.5 font-mono text-orange-600 font-bold">
-                      {doc.shelf} [{doc.rackCode}]
-                    </td>
-                    <td className="p-3.5 font-mono text-emerald-700 font-bold">{doc.folderNo}</td>
-                    <td className="p-3.5 text-slate-500">{doc.inwardDate}</td>
-                    <td className="p-3.5 text-center">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        {doc.status}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setEditingRackDoc({ ...doc })}
-                          title="Edit Vault Location"
-                          className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeletingRackDoc(doc)}
-                          title="Relinquish / Delete Record"
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {paginatedRackDocuments.map((doc, index) => {
+                  const globalIndex = (rackPage - 1) * rackPageSize + index + 1;
+                  return (
+                    <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
+                      <td className="p-3.5">
+                        <div className="font-bold text-slate-900">{doc.studentName}</div>
+                        <div className="text-[10px] font-mono text-slate-500">{doc.admissionNo}</div>
+                      </td>
+                      <td className="p-3.5 text-slate-800 font-medium">{doc.documentTitle}</td>
+                      <td className="p-3.5 text-slate-600">{doc.cupboard}</td>
+                      <td className="p-3.5 font-mono text-orange-600 font-bold">
+                        {doc.shelf} [{doc.rackCode}]
+                      </td>
+                      <td className="p-3.5 font-mono text-emerald-700 font-bold">{doc.folderNo}</td>
+                      <td className="p-3.5 text-slate-500">{doc.inwardDate}</td>
+                      <td className="p-3.5 text-center">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          {doc.status}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditingRackDoc({ ...doc })}
+                            title="Edit Vault Location"
+                            className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingRackDoc(doc)}
+                            title="Relinquish / Delete Record"
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+
+          {/* Original Documents Vault Pagination Controls */}
+          <TablePagination
+            currentPage={rackPage}
+            totalItems={sortedRackDocuments.length}
+            pageSize={rackPageSize}
+            pageSizeOptions={[5, 10, 25, 50, 100]}
+            onPageChange={setRackPage}
+            onPageSizeChange={setRackPageSize}
+            itemName="original documents"
+          />
         </div>
       )}
 
@@ -1419,18 +1821,24 @@ export const CertificatesModule: React.FC = () => {
               {(() => {
                 const inst = getInstitutionDetails(previewCert.branchName);
                 return (
-                  <div className="text-center border-b-2 border-slate-800 pb-3 space-y-1">
-                    <div className="text-[10px] font-sans font-bold tracking-widest text-orange-700 uppercase">
-                      {inst.trustName}
-                    </div>
-                    <h2 className="text-lg font-black uppercase text-slate-950 font-sans mt-0.5">
-                      {inst.name}
-                    </h2>
-                    <div className="text-[9px] font-sans text-slate-500">
-                      {inst.address}, {inst.city} - {inst.pincode} • Phone: {inst.phone}
-                    </div>
-                    <div className="text-[9px] font-sans font-bold text-slate-700">
-                      {inst.affiliationNo} • {inst.udiseCode}
+                  <div className="border-b-2 border-slate-800 pb-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <TrustLogo variant="emblem" size="sm" />
+                      <div className="text-center flex-1 space-y-0.5">
+                        <div className="text-[10px] font-sans font-bold tracking-widest text-orange-700 uppercase">
+                          {inst.trustName}
+                        </div>
+                        <h2 className="text-lg font-black uppercase text-slate-950 font-sans mt-0.5">
+                          {inst.name}
+                        </h2>
+                        <div className="text-[9px] font-sans text-slate-500">
+                          {inst.address}, {inst.city} - {inst.pincode} • Phone: {inst.phone}
+                        </div>
+                        <div className="text-[9px] font-sans font-bold text-slate-700">
+                          {inst.affiliationNo} • {inst.udiseCode}
+                        </div>
+                      </div>
+                      <TrustLogo variant="emblem" size="sm" />
                     </div>
                   </div>
                 );
@@ -1448,39 +1856,135 @@ export const CertificatesModule: React.FC = () => {
               </div>
 
               {/* Body */}
-              <div className="text-sm font-sans leading-relaxed text-slate-800 space-y-3">
-                <p>
-                  This is to officially certify that <strong>{previewCert.studentName}</strong>
-                  {previewCert.motherName ? `, Son/Daughter of ${previewCert.motherName}` : ''}
-                  {previewCert.fatherName ? ` and ${previewCert.fatherName}` : ''},
-                  is registered under General Register No. <strong>{previewCert.grNumber || 'ARCHIVE'}</strong>.
-                </p>
-
-                {previewCert.dob && (
+              {previewCert.certificateType === 'TRANSFER_LEAVING' ? (
+                <div className="border border-slate-300 divide-y divide-slate-300 text-xs font-sans rounded-xl overflow-hidden shadow-2xs">
+                  <div className="grid grid-cols-12 p-2 bg-slate-50">
+                    <div className="col-span-5 font-semibold text-slate-700">1. Student Full Name:</div>
+                    <div className="col-span-7 font-bold text-slate-900">
+                      {previewCert.studentName}
+                      {(previewCert.studentNameMarathi || previewCert.nameMarathi) && (
+                        <span className="font-serif text-orange-950 font-bold ml-1.5">
+                          ({previewCert.studentNameMarathi || previewCert.nameMarathi})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 p-2">
+                    <div className="col-span-5 text-slate-700">2. Mother's Name:</div>
+                    <div className="col-span-7 font-semibold text-slate-900">
+                      {previewCert.motherName || 'Verified on Record'}
+                      {previewCert.motherNameMarathi && (
+                        <span className="font-serif text-orange-950 ml-1.5">({previewCert.motherNameMarathi})</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 p-2 bg-slate-50">
+                    <div className="col-span-5 text-slate-700">3. Father's / Guardian's Name:</div>
+                    <div className="col-span-7 font-semibold text-slate-900">
+                      {previewCert.fatherName || 'Verified on Record'}
+                      {previewCert.fatherNameMarathi && (
+                        <span className="font-serif text-orange-950 ml-1.5">({previewCert.fatherNameMarathi})</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 p-2">
+                    <div className="col-span-5 text-slate-700">4. Nationality & Religion / Caste:</div>
+                    <div className="col-span-7 text-slate-900">
+                      {previewCert.nationality || 'Indian'} • {previewCert.religion || 'Hindu'} ({previewCert.caste || 'General'})
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 p-2 bg-slate-50">
+                    <div className="col-span-5 text-slate-700">5. Date of Birth (Figures & Words):</div>
+                    <div className="col-span-7 font-bold text-slate-900">
+                      {previewCert.dob || '—'} {previewCert.dobWords ? `(${previewCert.dobWords})` : ''}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 p-2">
+                    <div className="col-span-5 font-bold text-slate-700">6. Progress in Studies (प्रगती):</div>
+                    <div className="col-span-7 font-extrabold text-orange-900 bg-orange-50 px-2 py-0.5 rounded inline-block border border-orange-200">
+                      {previewCert.progress || 'Outstanding'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 p-2 bg-slate-50">
+                    <div className="col-span-5 font-bold text-slate-700">7. Conduct & Demeanor (वर्तणूक):</div>
+                    <div className="col-span-7 font-extrabold text-orange-900 bg-orange-50 px-2 py-0.5 rounded inline-block border border-orange-200">
+                      {previewCert.conduct || 'Exemplary'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 p-2">
+                    <div className="col-span-5 text-slate-700">8. Date of Leaving Institution:</div>
+                    <div className="col-span-7 font-bold text-slate-900">
+                      {previewCert.leavingDate || previewCert.issueDate}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 p-2 bg-slate-50">
+                    <div className="col-span-5 text-slate-700">9. Standard / Course in which studying/left:</div>
+                    <div className="col-span-7 font-bold text-slate-900">
+                      {previewCert.leavingGrade || previewCert.gradeOrCourse}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 p-2">
+                    <div className="col-span-5 text-slate-700">10. Reason for Leaving:</div>
+                    <div className="col-span-7 font-medium text-slate-900">
+                      {previewCert.reasonForLeaving || 'Higher Studies Transfer / Completed Course'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 p-2 bg-slate-50">
+                    <div className="col-span-5 text-slate-700">11. Remarks & Dues Clearance:</div>
+                    <div className="col-span-7 text-slate-800 text-[11px]">
+                      {previewCert.remarks || 'All dues cleared. Character and conduct certified.'}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm font-sans leading-relaxed text-slate-800 space-y-3">
                   <p>
-                    Their recorded Date of Birth is <strong>{previewCert.dob}</strong>
-                    {previewCert.dobWords ? ` (${previewCert.dobWords})` : ''}.
+                    This is to officially certify that <strong>{previewCert.studentName}</strong>
+                    {(previewCert.studentNameMarathi || previewCert.nameMarathi) && (
+                      <span className="font-serif font-bold text-orange-950">
+                        {' '}({previewCert.studentNameMarathi || previewCert.nameMarathi})
+                      </span>
+                    )}
+                    {previewCert.motherName ? `, Son/Daughter of ${previewCert.motherName}` : ''}
+                    {previewCert.motherNameMarathi && (
+                      <span className="font-serif text-slate-800"> ({previewCert.motherNameMarathi})</span>
+                    )}
+                    {previewCert.fatherName ? ` and ${previewCert.fatherName}` : ''}
+                    {previewCert.fatherNameMarathi && (
+                      <span className="font-serif text-slate-800"> ({previewCert.fatherNameMarathi})</span>
+                    )},
+                    is registered under General Register No. <strong>{previewCert.grNumber || 'ARCHIVE'}</strong>.
                   </p>
-                )}
 
-                <p>
-                  The student was enrolled in <strong>{previewCert.gradeOrCourse}</strong> for the academic period{' '}
-                  <strong>{previewCert.academicYear}</strong>. Their conduct and moral character were certified as{' '}
-                  <strong>{previewCert.conduct || 'Exemplary'}</strong>.
-                </p>
+                  {previewCert.dob && (
+                    <p>
+                      Their recorded Date of Birth is <strong>{previewCert.dob}</strong>
+                      {previewCert.dobWords ? ` (${previewCert.dobWords})` : ''}.
+                    </p>
+                  )}
 
-                {previewCert.purpose && (
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                    <strong>Certified Purpose:</strong> {previewCert.purpose}
-                  </div>
-                )}
+                  <p>
+                    The student was enrolled in <strong>{previewCert.gradeOrCourse}</strong> for the academic period{' '}
+                    <strong>{previewCert.academicYear}</strong>. Their conduct and moral character were certified as{' '}
+                    <strong>{previewCert.conduct || 'Exemplary'}</strong>
+                    {previewCert.progress ? (
+                      <> and academic progress as <strong>{previewCert.progress}</strong></>
+                    ) : ''}.
+                  </p>
 
-                {previewCert.remarks && (
-                  <div className="text-xs text-slate-600 italic">
-                    Remarks: {previewCert.remarks}
-                  </div>
-                )}
-              </div>
+                  {previewCert.purpose && (
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                      <strong>Certified Purpose:</strong> {previewCert.purpose}
+                    </div>
+                  )}
+
+                  {previewCert.remarks && (
+                    <div className="text-xs text-slate-600 italic">
+                      Remarks: {previewCert.remarks}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Signatures */}
               <div className="pt-6 border-t-2 border-slate-800 flex items-end justify-between font-sans">
@@ -1568,15 +2072,22 @@ export const CertificatesModule: React.FC = () => {
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 setCertificates((prev) => prev.map((c) => (c.id === editingCert.id ? editingCert : c)));
+                try {
+                  await fetch(`http://localhost:5000/api/certificates/${editingCert.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(editingCert),
+                  });
+                } catch {}
                 setEditingCert(null);
               }}
               className="mt-4 space-y-3 text-xs"
             >
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">Student Name</label>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Student Name (English)</label>
                 <input
                   type="text"
                   required
@@ -1585,6 +2096,67 @@ export const CertificatesModule: React.FC = () => {
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-orange-500"
                 />
               </div>
+
+              <div>
+                <MarathiKeypadInput
+                  label="Student Name in Marathi (विद्यार्थ्याचे नाव मराठीत)"
+                  value={editingCert.studentNameMarathi || editingCert.nameMarathi || ''}
+                  onChange={(val) => setEditingCert({ ...editingCert, studentNameMarathi: val, nameMarathi: val })}
+                  placeholder="उदा. आरव पाटील..."
+                  quickWords={['पाटील', 'देशमुख', 'शिंदे', 'जाधव', 'पवार', 'कुलकर्णी']}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Progress in Studies (प्रगती)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCert.progress || ''}
+                    onChange={(e) => setEditingCert({ ...editingCert, progress: e.target.value })}
+                    placeholder="e.g. Outstanding / Good"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Conduct & Character (वर्तणूक)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCert.conduct || ''}
+                    onChange={(e) => setEditingCert({ ...editingCert, conduct: e.target.value })}
+                    placeholder="e.g. Exemplary / Good"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              {editingCert.certificateType === 'TRANSFER_LEAVING' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Date of Leaving</label>
+                    <input
+                      type="date"
+                      value={editingCert.leavingDate || ''}
+                      onChange={(e) => setEditingCert({ ...editingCert, leavingDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Reason for Leaving</label>
+                    <input
+                      type="text"
+                      value={editingCert.reasonForLeaving || ''}
+                      onChange={(e) => setEditingCert({ ...editingCert, reasonForLeaving: e.target.value })}
+                      placeholder="e.g. Higher Studies Transfer"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium text-slate-900 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-600 mb-1">Issuing Signatory / Authority</label>

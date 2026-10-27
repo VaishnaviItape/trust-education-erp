@@ -10,21 +10,26 @@ import { FeeLedgerModule } from './components/FeeLedgerModule';
 import { AcademicsModule } from './components/AcademicsModule';
 import { BusFleetModule } from './components/BusFleetModule';
 import { EnquiriesModule } from './components/EnquiriesModule';
+import { AdmissionInquiryPage } from './components/AdmissionInquiryPage';
 import { StudentProgressionManager } from './components/StudentProgressionManager';
 import { AdmissionsWizardModal } from './components/AdmissionsWizardModal';
 import { TrustAccountingModule } from './components/TrustAccountingModule';
 import { CertificatesModule } from './components/CertificatesModule';
+import { IdCardsModule } from './components/IdCardsModule';
 import { ExamOmrStudioModule } from './components/ExamOmrStudioModule';
 import { BiometricsAttendanceModule } from './components/BiometricsAttendanceModule';
 import { HRPayrollModule } from './components/HRPayrollModule';
 import { TimetableModule } from './components/TimetableModule';
 import { CampusAuxiliaryModule } from './components/CampusAuxiliaryModule';
 import { CommunicationModule } from './components/CommunicationModule';
+import { TripsAndToursModule } from './components/TripsAndToursModule';
 import { AcademicMastersModule } from './components/AcademicMastersModule';
+import { ReportsCenterModule } from './components/ReportsCenterModule';
 import { FeatureFlagsModule } from './components/FeatureFlagsModule';
 import { FeatureFlagService } from './utils/featureFlags';
 import {
   Student,
+  Employee,
   FeeReceipt,
   BusRoute,
   KitchenPracticalBatch,
@@ -33,6 +38,12 @@ import {
   AdmissionEnquiry,
   StudentProgressionRecord,
 } from './types';
+import { StaffService } from './utils/staffData';
+import {
+  generateFeeBreakdown,
+  numberToWordsINR,
+  numberToMarathiWordsINR,
+} from './utils/feeReceiptUtils';
 import { FileQuestion, CheckCircle2, Phone, Mail, Calendar, UserCheck, Sliders } from 'lucide-react';
 import { envConfig } from './config/env';
 
@@ -229,6 +240,14 @@ const initialStudents: Student[] = [
     gradeOrSemester: 'Class 9-A',
     standard: 'Class 9',
     division: 'Division A',
+    admissionType: 'Existing',
+    isExistingStudent: true,
+    originalAdmissionYear: '2023-2024',
+    grNumber: 'GR-2023-0142',
+    prnNumber: 'PRN-2023-8890',
+    previousClassOrSem: 'Class 8-A',
+    previousYearPercentage: 91.2,
+    legacyEnrollmentSource: 'OLD_GR_REGISTER',
     parentName: 'Milind Kulkarni',
     fatherName: 'Milind Kulkarni',
     motherName: 'Aparna Kulkarni',
@@ -254,6 +273,14 @@ const initialStudents: Student[] = [
     gradeOrSemester: 'Class 10-A',
     standard: 'Class 10',
     division: 'Division A',
+    admissionType: 'Existing',
+    isExistingStudent: true,
+    originalAdmissionYear: '2022-2023',
+    grNumber: 'GR-2022-0914',
+    prnNumber: 'PRN-2022-7714',
+    previousClassOrSem: 'Class 9-A',
+    previousYearPercentage: 88.5,
+    legacyEnrollmentSource: 'OLD_GR_REGISTER',
     parentName: 'Eknath Shinde',
     fatherName: 'Eknath Shinde',
     motherName: 'Suman Shinde',
@@ -279,6 +306,14 @@ const initialStudents: Student[] = [
     gradeOrSemester: 'Class 11-A',
     standard: 'Class 11',
     division: 'Division A',
+    admissionType: 'Existing',
+    isExistingStudent: true,
+    originalAdmissionYear: '2024-2025',
+    grNumber: 'GR-2024-0312',
+    prnNumber: 'PRN-2024-5512',
+    previousClassOrSem: 'Class 10-A',
+    previousYearPercentage: 94.0,
+    legacyEnrollmentSource: 'OLD_GR_REGISTER',
     parentName: 'Vitthal Jadhav',
     fatherName: 'Vitthal Jadhav',
     motherName: 'Shaila Jadhav',
@@ -325,6 +360,14 @@ const initialStudents: Student[] = [
     name: 'Kabir Verma',
     gender: 'MALE',
     gradeOrSemester: 'B.Sc H&HA Semester 3',
+    admissionType: 'Existing',
+    isExistingStudent: true,
+    originalAdmissionYear: '2024-2025',
+    grNumber: 'GR-2024-HM-0101',
+    prnNumber: 'PRN-2024-UNI-8810',
+    previousClassOrSem: 'B.Sc H&HA Semester 2',
+    previousYearPercentage: 86.4,
+    legacyEnrollmentSource: 'OLD_GR_REGISTER',
     parentName: 'Sanjay Verma',
     parentPhone: '+91 99220 12345',
     feeTotal: 75000,
@@ -345,6 +388,14 @@ const initialStudents: Student[] = [
     name: 'Pooja Nair',
     gender: 'FEMALE',
     gradeOrSemester: 'B.Sc H&HA Semester 3',
+    admissionType: 'Existing',
+    isExistingStudent: true,
+    originalAdmissionYear: '2024-2025',
+    grNumber: 'GR-2024-HM-0102',
+    prnNumber: 'PRN-2024-UNI-8811',
+    previousClassOrSem: 'B.Sc H&HA Semester 2',
+    previousYearPercentage: 92.8,
+    legacyEnrollmentSource: 'OLD_GR_REGISTER',
     parentName: 'Venkatesh Nair',
     parentPhone: '+91 99220 54321',
     feeTotal: 75000,
@@ -460,11 +511,29 @@ const initialReceipts: FeeReceipt[] = [
     receiptNo: 'RCP-SCH-2026-081',
     studentId: 'stu-s01',
     studentName: 'Aarav Sharma',
-    branchName: 'Saraswati International Public School',
+    studentNameMarathi: 'आरव शर्मा',
+    branchName: 'Modern Public School And Junior College Bhose',
+    standardOrGrade: 'Class 7-A',
+    division: 'A',
+    rollNo: '12',
+    admissionNo: 'SCH-2026-001',
+    grNumber: 'GR-2026-001',
+    academicYear: '2026-2027',
+    parentName: 'Rajesh Sharma',
+    parentPhone: '+91 98220 12345',
+    category: 'General',
     amount: 12000,
+    totalAnnualFee: 45000,
+    previouslyPaid: 15000,
+    remainingBalance: 18000,
     paymentMode: 'UPI',
+    transactionReference: 'UPI/UTR-6291048201',
     date: '2026-10-21',
-    installmentNo: 2,
+    installmentNo: 'Installment 2 (Term II)',
+    feeBreakdown: generateFeeBreakdown(12000, 'SCHOOL'),
+    amountInWords: numberToWordsINR(12000),
+    amountInWordsMarathi: numberToMarathiWordsINR(12000),
+    cashierName: 'Accounts Officer (Central Office)',
     status: 'PAID',
   },
   {
@@ -472,11 +541,59 @@ const initialReceipts: FeeReceipt[] = [
     receiptNo: 'RCP-HM-2026-142',
     studentId: 'stu-hm01',
     studentName: 'Kabir Verma',
-    branchName: 'Imperial Institute of Hotel Management',
+    studentNameMarathi: 'कबीर वर्मा',
+    branchName: 'Modern College Of Hotel Management And Technology Solapur',
+    standardOrGrade: 'B.Sc H&HA Semester 2',
+    division: 'A',
+    rollNo: 'BHM-201',
+    admissionNo: 'HM-2026-101',
+    grNumber: 'GR-2026-HM-0101',
+    academicYear: '2026-2027',
+    parentName: 'Sanjay Verma',
+    parentPhone: '+91 98221 44556',
+    category: 'General',
     amount: 25000,
+    totalAnnualFee: 75000,
+    previouslyPaid: 25000,
+    remainingBalance: 25000,
     paymentMode: 'NETBANKING',
+    transactionReference: 'HDFC-NEFT-992144',
     date: '2026-10-18',
-    installmentNo: 2,
+    installmentNo: 'Installment 2 (Semester II)',
+    feeBreakdown: generateFeeBreakdown(25000, 'COLLEGE'),
+    amountInWords: numberToWordsINR(25000),
+    amountInWordsMarathi: numberToMarathiWordsINR(25000),
+    cashierName: 'Accounts Officer (Central Office)',
+    status: 'PAID',
+  },
+  {
+    id: 'rcp-03',
+    receiptNo: 'RCP-SCH-2026-095',
+    studentId: 'stu-s02',
+    studentName: 'Diya Patel',
+    studentNameMarathi: 'दिया पटेल',
+    branchName: 'Modern Public School And Junior College Bhose',
+    standardOrGrade: 'Class 8-B',
+    division: 'B',
+    rollNo: '05',
+    admissionNo: 'SCH-2026-002',
+    grNumber: 'GR-2026-002',
+    academicYear: '2026-2027',
+    parentName: 'Bhavin Patel',
+    parentPhone: '+91 98222 34567',
+    category: 'OBC',
+    amount: 18000,
+    totalAnnualFee: 48000,
+    previouslyPaid: 10000,
+    remainingBalance: 20000,
+    paymentMode: 'CHEQUE',
+    transactionReference: 'CHQ-581902 (SBI)',
+    date: '2026-10-22',
+    installmentNo: 'Installment 2 (Term II)',
+    feeBreakdown: generateFeeBreakdown(18000, 'SCHOOL'),
+    amountInWords: numberToWordsINR(18000),
+    amountInWordsMarathi: numberToMarathiWordsINR(18000),
+    cashierName: 'Accounts Officer (Central Office)',
     status: 'PAID',
   },
 ];
@@ -609,11 +726,25 @@ const initialEnquiries: AdmissionEnquiry[] = [
 ];
 
 // Helper to determine the active route view from pathname and hostname
-const getRouteFromLocation = (): 'WEBSITE' | 'LOGIN' | 'REGISTER' | 'PORTAL' => {
+const getRouteFromLocation = (): 'WEBSITE' | 'INQUIRY' | 'LOGIN' | 'REGISTER' | 'PORTAL' => {
   if (typeof window === 'undefined') return 'WEBSITE';
   const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
   const hostname = window.location.hostname.toLowerCase();
   const search = window.location.search.toLowerCase();
+
+  // Explicit Admission Inquiry Public Routes (e.g. /admission-inquiry, /admissions, /inquiry, /apply)
+  if (
+    pathname === '/admission-inquiry' ||
+    pathname === '/admissions' ||
+    pathname === '/inquiry' ||
+    pathname === '/inquiries' ||
+    pathname === '/apply' ||
+    pathname.startsWith('/admission-inquiry/') ||
+    search.includes('page=inquiry') ||
+    search.includes('view=admission-inquiry')
+  ) {
+    return 'INQUIRY';
+  }
 
   // Explicit Register Routes (e.g. http://localhost:3000/register or /signup)
   if (pathname === '/register' || pathname === '/signup' || pathname.startsWith('/register/')) {
@@ -677,8 +808,8 @@ export const App: React.FC = () => {
     return null;
   });
 
-  // 2. Route Navigation State (Supports http://localhost:3000/login, /register, /dashboard/..., /erp, /)
-  const [currentRoute, setCurrentRoute] = useState<'WEBSITE' | 'LOGIN' | 'REGISTER' | 'PORTAL'>(getRouteFromLocation);
+  // 2. Route Navigation State (Supports /admission-inquiry, /login, /register, /dashboard/..., /erp, /)
+  const [currentRoute, setCurrentRoute] = useState<'WEBSITE' | 'INQUIRY' | 'LOGIN' | 'REGISTER' | 'PORTAL'>(getRouteFromLocation);
 
   // 3. Sidebar Active Navigation Tab (persisted and initialized from URL pathname)
   const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
@@ -780,6 +911,19 @@ export const App: React.FC = () => {
 
   // 5. Application Data State
   const [students, setStudents] = useState<Student[]>(initialStudents);
+  const [employees, setEmployees] = useState<Employee[]>(() => StaffService.getEmployees());
+
+  const handleUpdateStudentPhoto = (studentId: string, photoUrl: string) => {
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, profilePhotoUrl: photoUrl } : s))
+    );
+  };
+
+  const handleUpdateEmployeePhoto = (employeeId: string, photoUrl: string) => {
+    setEmployees((prev) =>
+      prev.map((e) => (e.id === employeeId ? { ...e, profilePhotoUrl: photoUrl } : e))
+    );
+  };
   const [receipts, setReceipts] = useState<FeeReceipt[]>(initialReceipts);
   const [kitchenLabs, setKitchenLabs] = useState<KitchenPracticalBatch[]>(initialKitchenLabs);
   const [internships, setInternships] = useState<HotelInternship[]>(initialInternships);
@@ -809,8 +953,13 @@ export const App: React.FC = () => {
     return false;
   });
 
-  // 8. Navigation Sidebar Visibility State
-  const [isSidebarVisible, setIsSidebarVisible] = useState<boolean>(true);
+  // 8. Navigation Sidebar Visibility State (starts open on desktop, drawer on mobile)
+  const [isSidebarVisible, setIsSidebarVisible] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
 
   // Theme synchronization effect
   useEffect(() => {
@@ -868,6 +1017,17 @@ export const App: React.FC = () => {
       .then((data) => {
         if (data && data.history && data.history.length > 0) {
           setProgressionHistory(data.history);
+        }
+      })
+      .catch(() => {
+        // Fallback silently
+      });
+
+    fetch(`${envConfig.apiBaseUrl}/api/enquiries`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.enquiries && Array.isArray(data.enquiries) && data.enquiries.length > 0) {
+          setEnquiries(data.enquiries);
         }
       })
       .catch(() => {
@@ -932,8 +1092,14 @@ export const App: React.FC = () => {
       gradeOrSemester: newStudentData.gradeOrSemester,
       standard: newStudentData.standard,
       division: newStudentData.division,
-      admissionType: newStudentData.admissionType || 'Fresh',
-      admissionDate: newStudentData.admissionDate || new Date().toISOString().slice(0, 10),
+      admissionType: newStudentData.admissionType || (newStudentData.isExistingStudent ? 'Existing' : 'Fresh'),
+      admissionDate: newStudentData.admissionDate || (newStudentData.isExistingStudent ? `${newStudentData.originalAdmissionYear?.slice(0, 4) || '2023'}-06-15` : new Date().toISOString().slice(0, 10)),
+      isExistingStudent: Boolean(newStudentData.isExistingStudent || newStudentData.admissionType === 'Existing'),
+      originalAdmissionYear: newStudentData.originalAdmissionYear || (newStudentData.isExistingStudent ? '2023-2024' : '2026-2027'),
+      previousClassOrSem: newStudentData.previousClassOrSem,
+      previousYearPercentage: newStudentData.previousYearPercentage,
+      openingFeeBalance: newStudentData.openingFeeBalance || 0,
+      legacyEnrollmentSource: newStudentData.legacyEnrollmentSource || (newStudentData.isExistingStudent ? 'MANUAL_ENTRY' : undefined),
       parentName: newStudentData.parentName || 'Guardian',
       parentPhone: newStudentData.parentPhone || '+91 99999 00000',
       parentEmail: newStudentData.parentEmail,
@@ -993,16 +1159,45 @@ export const App: React.FC = () => {
     const targetStudent = students.find((s) => s.id === studentId);
     if (targetStudent) {
       const isSchool = targetStudent.branchId === 'branch-sch-01';
+      const breakdown = generateFeeBreakdown(amount, isSchool ? 'SCHOOL' : 'COLLEGE');
+      const previouslyPaid = targetStudent.feePaid;
+      const remainingBalance = Math.max(0, targetStudent.feeTotal - (targetStudent.feePaid + amount));
+
       const newReceipt: FeeReceipt = {
         id: `rcp-${Date.now()}`,
         receiptNo: `RCP-${isSchool ? 'SCH' : 'HM'}-2026-${Math.floor(100 + Math.random() * 900)}`,
         studentId,
         studentName: targetStudent.name,
-        branchName: isSchool ? 'Saraswati International Public School' : 'Imperial Institute of Hotel Management',
+        studentNameMarathi: targetStudent.nameMarathi,
+        branchName: isSchool
+          ? 'Modern Public School And Junior College Bhose'
+          : 'Modern College Of Hotel Management And Technology Solapur',
+        standardOrGrade: targetStudent.gradeOrSemester,
+        division: targetStudent.division || 'A',
+        rollNo: targetStudent.rollNo,
+        admissionNo: targetStudent.admissionNo,
+        grNumber: targetStudent.grNumber,
+        academicYear: '2026-2027',
+        parentName: targetStudent.parentName || targetStudent.fatherName,
+        parentPhone: targetStudent.parentPhone,
+        category: targetStudent.category || 'General',
         amount,
+        totalAnnualFee: targetStudent.feeTotal,
+        previouslyPaid,
+        remainingBalance,
         paymentMode: mode || 'UPI',
+        transactionReference:
+          mode === 'UPI'
+            ? `UPI/UTR-${Math.floor(100000000000 + Math.random() * 900000000000)}`
+            : mode === 'CHEQUE'
+            ? `CHQ-${Math.floor(100000 + Math.random() * 900000)}`
+            : `CASH-REC-${Math.floor(1000 + Math.random() * 9000)}`,
         date: new Date().toISOString().split('T')[0],
-        installmentNo: 2,
+        installmentNo: `Installment ${targetStudent.feePaid > 0 ? 2 : 1} (2026-2027)`,
+        feeBreakdown: breakdown,
+        amountInWords: numberToWordsINR(amount),
+        amountInWordsMarathi: numberToMarathiWordsINR(amount),
+        cashierName: 'Accounts Officer (Central Office)',
         status: 'PAID',
       };
       setReceipts((prev) => [newReceipt, ...prev]);
@@ -1019,8 +1214,28 @@ export const App: React.FC = () => {
     }));
   };
 
-  const handleAddEnquiry = (enquiry: AdmissionEnquiry) => {
-    setEnquiries([enquiry, ...enquiries]);
+  const handleAddEnquiry = async (enquiry: AdmissionEnquiry) => {
+    // 1. Optimistic update
+    setEnquiries((prev) => [enquiry, ...prev]);
+
+    // 2. Persist to API backend
+    try {
+      const res = await fetch(`${envConfig.apiBaseUrl}/api/enquiries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(enquiry),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.enquiry) {
+          setEnquiries((prev) =>
+            prev.map((e) => (e.id === enquiry.id ? { ...e, ...data.enquiry } : e))
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('Could not post enquiry to API:', err);
+    }
   };
 
   const handleUpdateStudents = (updatedStudents: Student[]) => {
@@ -1039,12 +1254,28 @@ export const App: React.FC = () => {
     setStudents((prev) => prev.filter((s) => s.id !== studentId));
   };
 
-  const handleEditEnquiry = (updatedEnquiry: AdmissionEnquiry) => {
+  const handleEditEnquiry = async (updatedEnquiry: AdmissionEnquiry) => {
     setEnquiries((prev) => prev.map((e) => (e.id === updatedEnquiry.id ? updatedEnquiry : e)));
+    try {
+      await fetch(`${envConfig.apiBaseUrl}/api/enquiries/${updatedEnquiry.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedEnquiry),
+      });
+    } catch (err) {
+      console.warn('Could not update enquiry in API:', err);
+    }
   };
 
-  const handleDeleteEnquiry = (enquiryId: string) => {
+  const handleDeleteEnquiry = async (enquiryId: string) => {
     setEnquiries((prev) => prev.filter((e) => e.id !== enquiryId));
+    try {
+      await fetch(`${envConfig.apiBaseUrl}/api/enquiries/${enquiryId}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.warn('Could not delete enquiry from API:', err);
+    }
   };
 
   const handleEditReceipt = (updatedReceipt: FeeReceipt) => {
@@ -1090,8 +1321,12 @@ export const App: React.FC = () => {
         return 'WhatsApp Automation & Digital Notice Board';
       case 'BUS':
         return 'Live GPS School Bus Fleet Tracking';
+      case 'TRIPS':
+        return 'Educational Trips, Study Tours & Live Parent Alerts';
       case 'ENQUIRIES':
         return 'Public Website Admission Inquiries';
+      case 'REPORTS':
+        return 'Centralized Reports & Auditing Center';
       default:
         return 'ERP Enterprise Suite';
     }
@@ -1103,14 +1338,27 @@ export const App: React.FC = () => {
         isDarkMode ? 'dark' : ''
       }`}
     >
-      {/* 1. ROUTE A: Public Landing Page (http://localhost:3000/ or https://abceducationtrust.org) */}
-      {currentRoute === 'WEBSITE' ? (
+      {/* 1. ROUTE A: Dedicated Public Admission Inquiry Page (e.g. /admission-inquiry, /admissions) */}
+      {currentRoute === 'INQUIRY' ? (
         <div className="flex-1 flex flex-col overflow-y-auto animate-fade-in">
+          <AdmissionInquiryPage
+            onGoToHome={() => navigateTo('/')}
+            onGoToPortal={() => navigateTo(currentUser ? '/erp' : '/login')}
+            onSubmitEnquiry={async (newEnquiry) => {
+              await handleAddEnquiry(newEnquiry);
+              return true;
+            }}
+          />
+        </div>
+      ) : currentRoute === 'WEBSITE' ? (
+        /* 2. ROUTE B: Public Landing Page (http://localhost:3000/ or https://abceducationtrust.org) */
+        <div id="website-scroll-container" className="flex-1 flex flex-col overflow-y-auto animate-fade-in">
           <Navbar
             onGoToPortal={() => navigateTo('/login')}
             isLoggedIn={Boolean(currentUser)}
             onGoToDashboard={() => navigateTo('/erp')}
             onGoToWebsite={() => navigateTo('/')}
+            onGoToInquiry={() => navigateTo('/admission-inquiry')}
           />
           <PublicWebsite
             onGoToPortal={(branch) => {
@@ -1125,10 +1373,11 @@ export const App: React.FC = () => {
             }}
             enquiries={enquiries}
             onAddEnquiry={handleAddEnquiry}
+            onGoToInquiry={() => navigateTo('/admission-inquiry')}
           />
         </div>
       ) : currentRoute === 'REGISTER' ? (
-        /* 2. ROUTE B: Dedicated Clean Create Account Screen (http://localhost:3000/register) */
+        /* 3. ROUTE C: Dedicated Clean Create Account Screen (http://localhost:3000/register) */
         <div className="flex-1 flex flex-col overflow-y-auto animate-fade-in">
           <LoginPage
             mode="CREATE_ACCOUNT"
@@ -1140,7 +1389,7 @@ export const App: React.FC = () => {
           />
         </div>
       ) : currentRoute === 'LOGIN' || !currentUser ? (
-        /* 3. ROUTE C: Dedicated Clean Login Screen (http://localhost:3000/login) */
+        /* 4. ROUTE D: Dedicated Clean Login Screen (http://localhost:3000/login) */
         <div className="flex-1 flex flex-col overflow-y-auto animate-fade-in">
           <LoginPage
             mode="SIGN_IN"
@@ -1152,21 +1401,52 @@ export const App: React.FC = () => {
           />
         </div>
       ) : (
-        /* 4. ROUTE D: Authenticated ERP Portal (http://localhost:3000/erp or https://erp.abceducationtrust.org) */
-        <div className="flex-1 flex flex-row min-h-0 overflow-hidden">
-          {/* Left Navigation Sidebar (Toggleable & Collapsible) */}
-          {isSidebarVisible && (
+        /* 5. ROUTE E: Authenticated ERP Portal (http://localhost:3000/erp or https://erp.abceducationtrust.org) */
+        <div className="flex-1 flex flex-row min-h-0 overflow-hidden relative">
+          {/* Desktop Left Navigation Sidebar (Toggleable & Collapsible) */}
+          <div className={`${isSidebarVisible ? 'hidden lg:flex' : 'hidden'} shrink-0 h-full`}>
             <Sidebar
               activeTab={activeTab}
               onSelectTab={handleSelectTab}
               currentUser={currentUser}
               onLogout={handleLogout}
               onGoToWebsite={() => navigateTo('/')}
+              newEnquiriesCount={enquiries.filter((e) => e.status === 'NEW').length}
             />
+          </div>
+
+          {/* Mobile Off-Canvas Sidebar Drawer with Backdrop Overlay */}
+          {isSidebarVisible && (
+            <div className="lg:hidden fixed inset-0 z-50 flex">
+              {/* Semi-transparent Backdrop */}
+              <div
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-fade-in"
+                onClick={() => setIsSidebarVisible(false)}
+              />
+              {/* Slide-out Sidebar Drawer */}
+              <div className="relative w-72 max-w-[85vw] h-full z-10 shadow-2xl animate-slide-right flex flex-col bg-white dark:bg-slate-900">
+                <Sidebar
+                  activeTab={activeTab}
+                  onSelectTab={(tab) => {
+                    handleSelectTab(tab);
+                    setIsSidebarVisible(false);
+                  }}
+                  currentUser={currentUser}
+                  onLogout={handleLogout}
+                  onGoToWebsite={() => {
+                    setIsSidebarVisible(false);
+                    navigateTo('/');
+                  }}
+                  onCloseMobile={() => setIsSidebarVisible(false)}
+                  newEnquiriesCount={enquiries.filter((e) => e.status === 'NEW').length}
+                />
+              </div>
+            </div>
           )}
 
-              {/* Main Workspace with Top Header Bar */}
-              <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+              {/* Right Column: Permanent Top Header + Scrollable Workspace Below */}
+              <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+                {/* 1. Header is Permanently Fixed at the Top (Never scrolls off or gets clipped at any scale) */}
                 <DashboardHeader
                   currentUser={currentUser}
                   academicYear={academicYear}
@@ -1183,7 +1463,9 @@ export const App: React.FC = () => {
                   onLogout={handleLogout}
                 />
 
-                <main className="flex-1 p-4 sm:p-8 max-w-7xl mx-auto w-full">
+                {/* 2. Scrollable Workspace Body: ONLY content scrolls vertically & horizontally */}
+                <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-auto erp-workspace-scroll flex flex-col justify-between">
+                  <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full min-w-0">
                   {/* STAGING BANNER (Visible to Superadmin if viewing a hidden module) */}
                   {activeTab !== 'OVERVIEW' &&
                     activeTab !== 'FEATURE_FLAGS' &&
@@ -1364,6 +1646,9 @@ export const App: React.FC = () => {
                       onAddEnquiry={handleAddEnquiry}
                       onEditEnquiry={handleEditEnquiry}
                       onDeleteEnquiry={handleDeleteEnquiry}
+                      onConvertToAdmission={(enq) => {
+                        setShowAdmissionWizard(true);
+                      }}
                     />
                   )}
 
@@ -1386,6 +1671,23 @@ export const App: React.FC = () => {
                   {/* CERTIFICATES & VAULT RACK INDEX TAB */}
                   {activeTab === 'CERTIFICATES' && <CertificatesModule />}
 
+                  {/* ID CARDS STUDIO & BATCH PRINTING TAB */}
+                  {activeTab === 'ID_CARDS' && (
+                    <IdCardsModule
+                      students={students}
+                      employees={employees}
+                      selectedBranchScope={
+                        currentUser.role === 'BRANCH_ADMIN_SCHOOL'
+                          ? 'SCHOOL'
+                          : currentUser.role === 'BRANCH_ADMIN_COLLEGE'
+                          ? 'COLLEGE'
+                          : selectedBranch
+                      }
+                      onUpdateStudentPhoto={handleUpdateStudentPhoto}
+                      onUpdateEmployeePhoto={handleUpdateEmployeePhoto}
+                    />
+                  )}
+
                   {/* EXAMS & OMR COMPUTER VISION TAB */}
                   {activeTab === 'EXAMS_OMR' && <ExamOmrStudioModule />}
 
@@ -1401,11 +1703,54 @@ export const App: React.FC = () => {
                   {/* CAMPUS AUXILIARY TAB */}
                   {activeTab === 'AUXILIARY' && <CampusAuxiliaryModule />}
 
-                  {/* WHATSAPP & NOTICE BOARD TAB */}
-                  {activeTab === 'COMMUNICATION' && <CommunicationModule />}
+                  {/* WHATSAPP, PARENTS MEETINGS & NOTICE BOARD TAB */}
+                  {activeTab === 'COMMUNICATION' && (
+                    <CommunicationModule
+                      initialTab={
+                        window.location.pathname.includes('parent-meetings') ||
+                        window.location.pathname.includes('ptm') ||
+                        window.location.search.includes('tab=ptm')
+                          ? 'PARENT_MEETINGS'
+                          : 'EVENTS'
+                      }
+                    />
+                  )}
+
+                  {/* EDUCATIONAL TRIPS, STUDY TOURS & PARENT ALERTS TAB */}
+                  {activeTab === 'TRIPS' && (
+                    <TripsAndToursModule
+                      selectedBranchScope={
+                        currentUser.role === 'BRANCH_ADMIN_SCHOOL'
+                          ? 'SCHOOL'
+                          : currentUser.role === 'BRANCH_ADMIN_COLLEGE'
+                          ? 'COLLEGE'
+                          : selectedBranch
+                      }
+                      onChangeBranchScope={setSelectedBranch}
+                      academicYear={academicYear}
+                    />
+                  )}
 
                   {/* PRODUCTION FEATURE FLAGS / DEPLOY VISIBILITY TAB */}
                   {activeTab === 'FEATURE_FLAGS' && <FeatureFlagsModule />}
+
+                  {/* CENTRALIZED REPORTS & AUDITING TAB */}
+                  {activeTab === 'REPORTS' && (
+                    <ReportsCenterModule
+                      students={students}
+                      receipts={receipts}
+                      enquiries={enquiries}
+                      busRoute={busRoute}
+                      academicYear={academicYear}
+                      selectedBranchScope={
+                        currentUser.role === 'BRANCH_ADMIN_SCHOOL'
+                          ? 'SCHOOL'
+                          : currentUser.role === 'BRANCH_ADMIN_COLLEGE'
+                          ? 'COLLEGE'
+                          : selectedBranch
+                      }
+                    />
+                  )}
                 </>
               )}
             </main>
@@ -1422,6 +1767,7 @@ export const App: React.FC = () => {
               </div>
             </footer>
           </div>
+        </div>
 
               {/* Centralized Admission Wizard Modal */}
               <AdmissionsWizardModal

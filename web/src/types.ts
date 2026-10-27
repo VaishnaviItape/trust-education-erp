@@ -32,8 +32,14 @@ export interface Student {
   gradeOrSemester: string;
   standard?: string;
   division?: string;
-  admissionType?: 'Fresh' | 'Transfer' | 'Lateral' | 'Re-admission';
+  admissionType?: 'Fresh' | 'Transfer' | 'Lateral' | 'Re-admission' | 'Existing';
   admissionDate?: string;
+  isExistingStudent?: boolean;
+  originalAdmissionYear?: string;
+  previousClassOrSem?: string;
+  previousYearPercentage?: number;
+  openingFeeBalance?: number;
+  legacyEnrollmentSource?: 'MANUAL_ENTRY' | 'BULK_CSV_MIGRATION' | 'OLD_GR_REGISTER';
   parentName: string;
   parentPhone: string;
   parentEmail?: string;
@@ -48,6 +54,13 @@ export interface Student {
   aadhaarNumber?: string;
   aadhaarVerified?: boolean;
   roleTag?: 'STUDENT' | 'PREFECT' | 'INTERN' | 'STAFF' | 'ADMIN';
+
+  // Marathi / Devanagari Script (मराठी नोंद - Required for statutory LC, Bonafide, GR):
+  nameMarathi?: string;
+  fatherNameMarathi?: string;
+  motherNameMarathi?: string;
+  casteMarathi?: string;
+  placeOfBirthMarathi?: string;
 
   // Statutory & Historical General Register (GR) Archive Fields:
   grNumber?: string;
@@ -85,6 +98,18 @@ export interface Student {
   conduct?: string;
   reasonForLeaving?: string;
   remarks?: string;
+
+  // Transfer / Previous School Details (Kaksha Plus 23 Standard):
+  previousSchool?: string;
+  standardDivLeft?: string;
+  schoolLeavingDate?: string;
+  lcReceivedDate?: string;
+  migrationUniversity?: string;
+  voluntarySubjectSpecial?: string;
+  previousProgress?: string;
+  previousConduct?: string;
+  previousLcNumber?: string;
+
   status?: 'ACTIVE' | 'ALUMNI_PASSED' | 'ALUMNI_WITHDRAWN';
   branchName?: string;
 }
@@ -103,6 +128,8 @@ export interface IssuedCertificate {
   certificateType: CertificateType;
   studentId: string;
   studentName: string;
+  studentNameMarathi?: string;
+  nameMarathi?: string;
   grNumber?: string;
   branchName: string;
   gradeOrCourse: string;
@@ -112,13 +139,17 @@ export interface IssuedCertificate {
   digitalSignatureHash: string;
   qrVerificationUrl: string;
   motherName?: string;
+  motherNameMarathi?: string;
   fatherName?: string;
+  fatherNameMarathi?: string;
   dob?: string;
   dobWords?: string;
   placeOfBirth?: string;
+  placeOfBirthMarathi?: string;
   nationality?: string;
   religion?: string;
   caste?: string;
+  casteMarathi?: string;
   admissionDate?: string;
   admissionGrade?: string;
   leavingDate?: string;
@@ -132,17 +163,48 @@ export interface IssuedCertificate {
   details?: Record<string, any>;
 }
 
+export interface FeeHeadItem {
+  id: string;
+  headName: string;
+  headNameMarathi?: string;
+  amount: number;
+  category?: 'MANDATORY' | 'OPTIONAL' | 'ANNUAL' | 'TERM';
+}
+
 export interface FeeReceipt {
   id: string;
   receiptNo: string;
   studentId: string;
   studentName: string;
+  studentNameMarathi?: string;
   branchName: string;
+  standardOrGrade?: string;
+  division?: string;
+  rollNo?: string;
+  admissionNo?: string;
+  grNumber?: string;
+  academicYear?: string;
+  parentName?: string;
+  parentPhone?: string;
+  category?: string;
   amount: number;
+  totalAnnualFee?: number;
+  previouslyPaid?: number;
+  remainingBalance?: number;
   paymentMode: 'UPI' | 'CASH' | 'CHEQUE' | 'NETBANKING';
+  transactionReference?: string;
+  bankName?: string;
+  chequeDate?: string;
   date: string;
-  installmentNo: number;
+  time?: string;
+  installmentNo: number | string;
+  feeBreakdown?: FeeHeadItem[];
+  amountInWords?: string;
+  amountInWordsMarathi?: string;
+  cashierName?: string;
   status: 'PAID';
+  remarks?: string;
+  qrVerificationUrl?: string;
 }
 
 export interface KitchenPracticalBatch {
@@ -190,6 +252,32 @@ export interface BusRoute {
   stops: { name: string; time: string; passed: boolean }[];
 }
 
+export interface Employee {
+  id: string;
+  code: string;
+  name: string;
+  nameMarathi?: string;
+  role: string;
+  dept: string;
+  branch: string;
+  branchId?: string;
+  email?: string;
+  phone: string;
+  emergencyContact?: string;
+  bloodGroup?: string;
+  dob?: string;
+  joinDate?: string;
+  validUpto?: string;
+  address?: string;
+  profilePhotoUrl?: string;
+  aadhaarNumber?: string;
+  pan?: string;
+  basic?: number;
+  hra?: number;
+  da?: number;
+  special?: number;
+}
+
 export interface AdmissionEnquiry {
   id: string;
   applicantName: string;
@@ -199,6 +287,18 @@ export interface AdmissionEnquiry {
   targetClassOrCourse: string;
   status: 'NEW' | 'CONTACTED' | 'ADMITTED';
   createdAt: string;
+  parentRelation?: string;
+  altPhone?: string;
+  email?: string;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  dob?: string;
+  previousSchool?: string;
+  city?: string;
+  address?: string;
+  needTransportOrHostel?: boolean;
+  preferredContactTime?: string;
+  notes?: string;
+  counselorNotes?: string;
 }
 
 export interface StudentProgressionRecord {
@@ -233,4 +333,208 @@ export interface UserProfile {
   email: string;
   token?: string;
 }
+
+export interface ExamSeatingAllocation {
+  id: string;
+  examName: string;
+  subject: string;
+  subjectCode?: string;
+  examDate: string;
+  examTime: string;
+  roomNo: string;
+  blockNo?: string;
+  invigilatorName?: string;
+  srNo: number;
+  rollNo: string;
+  studentName: string;
+  admissionNo?: string;
+  hallTicketNo: string;
+  benchNo: string;
+  classOrGrade: string;
+  branchName?: string;
+  attendanceStatus?: 'PRESENT' | 'ABSENT' | 'ALLOCATED';
+  notes?: string;
+}
+
+export interface StudentGrade {
+  id: string;
+  studentId: string;
+  studentName: string;
+  rollNo?: string;
+  admissionNo?: string;
+  branchId?: string;
+  classOrGrade?: string;
+  examOrPracticalName: string;
+  subject?: string;
+  maxMarks: number;
+  marksObtained: number;
+  percentage?: number;
+  grade: string;
+  status?: 'PASS' | 'FAIL';
+  remarks?: string;
+  date: string;
+}
+
+export interface MarksheetStudentEntry {
+  studentId: string;
+  studentName: string;
+  nameMarathi?: string;
+  rollNo: string;
+  admissionNo: string;
+  classOrGrade: string;
+  branchId: string;
+  marksObtained: number | '';
+  maxMarks: number;
+  passingMarks: number;
+  percentage: number;
+  grade: string;
+  status: 'PASS' | 'FAIL' | 'PENDING' | 'ABSENT';
+  remarks: string;
+}
+
+export interface ClassroomAllocation {
+  id: string;
+  branchScope: 'SCHOOL' | 'COLLEGE';
+  branchId?: string;
+  academicYear: string;
+  classroomId: string;
+  classroomName: string;
+  roomCode: string;
+  roomType?: string;
+  wing: string;
+  floor: string;
+  capacity: number;
+  classOrGrade: string;
+  division?: string;
+  enrolledStudentsCount: number;
+  teacherId: string;
+  teacherName: string;
+  teacherEmail?: string;
+  teacherPhone?: string;
+  teacherDesignation?: string;
+  specializationSubject?: string;
+  coTeacherId?: string;
+  coTeacherName?: string;
+  coTeacherSubject?: string;
+  responsibilities: string[];
+  classTeacherMeetingHours?: string;
+  status: 'ACTIVE' | 'SUBSTITUTE' | 'VACANT';
+  assignedDate: string;
+  remarks?: string;
+}
+
+export interface BankQuestion {
+  id: string;
+  code: string;
+  subject: string;
+  subjectCode: string;
+  gradeOrClass: string;
+  branchScope: 'SCHOOL' | 'COLLEGE';
+  chapterTopic: string;
+  language: 'ENGLISH' | 'MARATHI' | 'HINDI' | 'BILINGUAL_EN_MR' | 'BILINGUAL_EN_HI';
+  questionType: 'MCQ' | 'SHORT' | 'LONG' | 'NUMERICAL_MATH' | 'TRUE_FALSE' | 'DIAGRAM';
+  marks: number;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  bloomLevel?: 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | 'ANALYZE' | 'EVALUATE';
+  questionText: string;
+  questionTextSecondary?: string;
+  options?: string[];
+  correctAnswer: string;
+  solutionExplanation?: string;
+  formulaUsed?: string;
+  tags: string[];
+  createdAt: string;
+}
+
+export interface QuestionPaperSection {
+  sectionName: string;
+  sectionInstructions?: string;
+  targetMarks: number;
+  questionIds: string[];
+}
+
+export interface QuestionPaper {
+  id: string;
+  paperCode: string;
+  title: string;
+  subject: string;
+  gradeOrClass: string;
+  branchScope: 'SCHOOL' | 'COLLEGE';
+  language: 'ENGLISH' | 'MARATHI' | 'HINDI' | 'BILINGUAL';
+  academicYear: string;
+  maxMarks: number;
+  timeAllowedMinutes: number;
+  generalInstructions: string[];
+  sections: QuestionPaperSection[];
+  questions: BankQuestion[];
+  status: 'DRAFT' | 'FINALIZED' | 'PUBLISHED';
+  createdDate: string;
+  authorTeacher: string;
+}
+
+// --------------------------------------------------------------------------
+// PARENT-TEACHER MEETINGS (PTM) & NOTIFICATIONS
+// --------------------------------------------------------------------------
+export type MeetingRSVPStatus = 'ATTENDING' | 'TENTATIVE' | 'CANNOT_ATTEND' | 'REQUEST_RESCHEDULE' | 'PENDING';
+
+export interface ParentMeetingRSVP {
+  studentId: string;
+  studentName: string;
+  rollNo: string;
+  gradeOrSemester: string;
+  parentName: string;
+  parentPhone: string;
+  status: MeetingRSVPStatus;
+  respondedAt?: string;
+  parentRemarks?: string;
+  attended: boolean;
+  teacherRemarks?: string;
+}
+
+export interface ParentMeetingRecord {
+  id: string;
+  meetingCode: string;
+  branchScope: 'SCHOOL' | 'COLLEGE' | 'ALL';
+  branchName: string;
+  title: string;
+  meetingType:
+    | 'ACADEMIC_REVIEW'
+    | 'DISCIPLINE_COUNSELING'
+    | 'BOARD_EXAM_PREPARATION'
+    | 'ANNUAL_PTA'
+    | 'INTERNSHIP_PLACEMENT'
+    | 'FEE_CLEARANCE'
+    | 'GENERAL';
+  targetAudienceType: 'ALL_CLASSES' | 'SPECIFIC_CLASSES' | 'INDIVIDUAL_STUDENTS';
+  targetClasses: string[];
+  targetStudentIds?: string[];
+  meetingMode: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
+  date: string;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  onlineMeetingUrl?: string;
+  teacherInCharge: string;
+  teacherPhone: string;
+  agenda: string[];
+  notes?: string;
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  notificationDispatch: {
+    dispatched: boolean;
+    dispatchedAt?: string;
+    channels: ('IN_APP' | 'WHATSAPP' | 'SMS' | 'EMAIL')[];
+    totalParentsTargeted: number;
+    deliveredCount: number;
+    readCount: number;
+    smsTemplateMarathi: string;
+    smsTemplateEnglish: string;
+  };
+  rsvps: ParentMeetingRSVP[];
+  minutesOfMeeting?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+
 

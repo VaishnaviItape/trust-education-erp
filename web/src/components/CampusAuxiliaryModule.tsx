@@ -19,6 +19,7 @@ import {
   Save,
 } from 'lucide-react';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
 
 export const CampusAuxiliaryModule: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'LIBRARY' | 'HOSTEL' | 'TRANSPORT' | 'INVENTORY' | 'VISITOR'>('VISITOR');
@@ -118,6 +119,22 @@ export const CampusAuxiliaryModule: React.FC = () => {
     sortDirection: inventorySortDir,
     handleSort: handleInventorySort,
   } = useTableSort(inventoryItems);
+
+  const {
+    currentPage: libraryPage,
+    setCurrentPage: setLibraryPage,
+    pageSize: libraryPageSize,
+    setPageSize: setLibraryPageSize,
+    paginatedItems: paginatedLibraryBooks,
+  } = usePagination(sortedLibraryBooks, 10);
+
+  const {
+    currentPage: inventoryPage,
+    setCurrentPage: setInventoryPage,
+    pageSize: inventoryPageSize,
+    setPageSize: setInventoryPageSize,
+    paginatedItems: paginatedInventoryItems,
+  } = usePagination(sortedInventoryItems, 10);
 
   const handleIssueGatePass = (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,51 +288,65 @@ export const CampusAuxiliaryModule: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sortedLibraryBooks.map((b, index) => (
-                <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
-                  <td className="p-3.5">
-                    <div className="font-bold text-slate-900">{b.title}</div>
-                    <div className="text-[10px] text-slate-500">{b.author}</div>
-                  </td>
-                  <td className="p-3.5 font-mono text-orange-700">
-                    <div>{b.barcode}</div>
-                    <div className="text-[10px] text-slate-500">{b.isbn}</div>
-                  </td>
-                  <td className="p-3.5 text-slate-700">{b.rack}</td>
-                  <td className="p-3.5 text-center font-bold font-mono text-emerald-700">
-                    {b.available} / {b.total}
-                  </td>
-                  <td className="p-3.5 text-center">
-                    <button className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] border border-slate-200 cursor-pointer">
-                      Issue / Return Barcode
-                    </button>
-                  </td>
-                  <td className="p-3.5 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setEditingBook({ ...b })}
-                        className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
-                        title="Edit Book"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
+              {paginatedLibraryBooks.map((b, index) => {
+                const globalIndex = (libraryPage - 1) * libraryPageSize + index + 1;
+                return (
+                  <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
+                    <td className="p-3.5">
+                      <div className="font-bold text-slate-900">{b.title}</div>
+                      <div className="text-[10px] text-slate-500">{b.author}</div>
+                    </td>
+                    <td className="p-3.5 font-mono text-orange-700">
+                      <div>{b.barcode}</div>
+                      <div className="text-[10px] text-slate-500">{b.isbn}</div>
+                    </td>
+                    <td className="p-3.5 text-slate-700">{b.rack}</td>
+                    <td className="p-3.5 text-center font-bold font-mono text-emerald-700">
+                      {b.available} / {b.total}
+                    </td>
+                    <td className="p-3.5 text-center">
+                      <button className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] border border-slate-200 cursor-pointer">
+                        Issue / Return Barcode
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingBook(b)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
-                        title="Delete Book"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="p-3.5 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingBook({ ...b })}
+                          className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                          title="Edit Book"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingBook(b)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                          title="Delete Book"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           </div>
+
+          {/* Library Table Pagination Controls */}
+          <TablePagination
+            currentPage={libraryPage}
+            totalItems={sortedLibraryBooks.length}
+            pageSize={libraryPageSize}
+            pageSizeOptions={[5, 10, 25, 50]}
+            onPageChange={setLibraryPage}
+            onPageSizeChange={setLibraryPageSize}
+            itemName="books"
+          />
         </div>
       )}
 
@@ -369,40 +400,54 @@ export const CampusAuxiliaryModule: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sortedInventoryItems.map((item, index) => (
-                <tr key={item.code} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
-                  <td className="p-3.5 font-mono text-orange-600 font-bold">{item.code}</td>
-                  <td className="p-3.5 font-bold text-slate-900">{item.name}</td>
-                  <td className="p-3.5 text-slate-500">{item.category}</td>
-                  <td className="p-3.5 text-right font-mono font-black text-emerald-700">
-                    {item.stock} {item.unit}
-                  </td>
-                  <td className="p-3.5 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setEditingAsset({ ...item })}
-                        className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
-                        title="Edit Asset"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingAsset(item)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
-                        title="Delete Asset"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {paginatedInventoryItems.map((item, index) => {
+                const globalIndex = (inventoryPage - 1) * inventoryPageSize + index + 1;
+                return (
+                  <tr key={item.code} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
+                    <td className="p-3.5 font-mono text-orange-600 font-bold">{item.code}</td>
+                    <td className="p-3.5 font-bold text-slate-900">{item.name}</td>
+                    <td className="p-3.5 text-slate-500">{item.category}</td>
+                    <td className="p-3.5 text-right font-mono font-black text-emerald-700">
+                      {item.stock} {item.unit}
+                    </td>
+                    <td className="p-3.5 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingAsset({ ...item })}
+                          className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                          title="Edit Asset"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingAsset(item)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                          title="Delete Asset"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           </div>
+
+          {/* Inventory Table Pagination Controls */}
+          <TablePagination
+            currentPage={inventoryPage}
+            totalItems={sortedInventoryItems.length}
+            pageSize={inventoryPageSize}
+            pageSizeOptions={[5, 10, 25, 50]}
+            onPageChange={setInventoryPage}
+            onPageSizeChange={setInventoryPageSize}
+            itemName="inventory items"
+          />
         </div>
       )}
 

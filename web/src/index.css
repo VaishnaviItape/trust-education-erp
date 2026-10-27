@@ -24,58 +24,95 @@
   }
 }
 
-/* Completely Hide Scrollbars Everywhere (Tables, Sidebar, Workspace) while preserving full smooth scrolling */
-*,
-*::before,
-*::after,
-html,
-body,
-div,
-main,
-aside,
-section,
-ul,
-table,
-tbody,
-.erp-table-scroll {
-  -ms-overflow-style: none !important; /* IE and Edge */
+/* Clean Invisible Scrollbars Across All Elements (Scroll occurs smoothly, but scrollbar is not displayed) */
+* {
   scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Legacy Edge */
 }
 
 *::-webkit-scrollbar,
-html::-webkit-scrollbar,
-body::-webkit-scrollbar,
-div::-webkit-scrollbar,
-main::-webkit-scrollbar,
-aside::-webkit-scrollbar,
-section::-webkit-scrollbar,
-ul::-webkit-scrollbar,
-table::-webkit-scrollbar,
-tbody::-webkit-scrollbar,
-.erp-table-scroll::-webkit-scrollbar {
+::-webkit-scrollbar,
+.erp-table-scroll::-webkit-scrollbar,
+.erp-header-scroll::-webkit-scrollbar,
+.erp-workspace-scroll::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
   background: transparent !important;
 }
 
-/* ERP Table Scroll Container - Viewport-bounded height with seamless invisible scrolling */
+/* ERP Table Scroll Container - Viewport-bounded height with smooth scrolling without displaying scrollbars */
 .erp-table-scroll {
   overflow-x: auto !important;
   overflow-y: auto !important;
-  max-height: calc(100vh - 270px);
-  min-height: 260px;
+  max-height: calc(100vh - 280px);
+  min-height: 240px;
   position: relative;
   scroll-behavior: smooth;
-  -ms-overflow-style: none !important;
-  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 @media (max-width: 768px) {
   .erp-table-scroll {
-    max-height: 65vh;
-    min-height: 220px;
+    max-height: 60vh;
+    min-height: 200px;
   }
+}
+
+/* Fluid Slide & Fade Drawer Keyframes */
+@keyframes slideRight {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideLeft {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slide-right {
+  animation: slideRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-left {
+  animation: slideLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+/* ERP Header Horizontal Scroll - Smooth scroll without displaying scrollbar */
+.erp-header-scroll {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ERP Main Workspace Full Scroll Container - Full vertical and horizontal scroll without displaying scrollbars */
+.erp-workspace-scroll {
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 
 /* Dark Mode Global Component Overrides for Instant Contrast */
@@ -141,10 +178,17 @@ tbody::-webkit-scrollbar,
     visibility: hidden;
   }
   #printable-receipt, #printable-receipt *,
-  #printable-certificate, #printable-certificate * {
-    visibility: visible;
+  #printable-certificate, #printable-certificate *,
+  #printable-seating-chart, #printable-seating-chart *,
+  #printable-id-card-modal, #printable-id-card-modal *,
+  #printable-bulk-a4-container, #printable-bulk-a4-container *,
+  .id-card-printable-area, .id-card-printable-area *,
+  .id-card-print-card, .id-card-print-card *,
+  .id-card-print-card-wrapper, .id-card-print-card-wrapper *,
+  .page-break-after, .page-break-after * {
+    visibility: visible !important;
   }
-  #printable-receipt, #printable-certificate {
+  #printable-receipt, #printable-certificate, #printable-seating-chart {
     position: absolute;
     left: 0;
     top: 0;
@@ -155,5 +199,68 @@ tbody::-webkit-scrollbar,
     color: black !important;
     box-shadow: none !important;
     border: none !important;
+  }
+  .id-card-printable-area,
+  .id-card-print-card,
+  .id-card-print-card-wrapper,
+  #printable-id-card-modal,
+  #printable-bulk-a4-container,
+  .page-break-after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .id-card-portrait-card-wrapper {
+    width: 54mm !important;
+    height: 86mm !important;
+    min-width: 54mm !important;
+    min-height: 86mm !important;
+    max-width: 54mm !important;
+    max-height: 86mm !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    display: inline-block !important;
+    position: relative !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .id-card-landscape-card-wrapper {
+    width: 86mm !important;
+    height: 54mm !important;
+    min-width: 86mm !important;
+    min-height: 54mm !important;
+    max-width: 86mm !important;
+    max-height: 54mm !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    display: inline-block !important;
+    position: relative !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .id-card-portrait-card {
+    width: 310px !important;
+    height: 495px !important;
+    min-width: 310px !important;
+    min-height: 495px !important;
+    transform: scale(0.658) !important;
+    transform-origin: top left !important;
+    box-shadow: none !important;
+  }
+  .id-card-landscape-card {
+    width: 495px !important;
+    height: 310px !important;
+    min-width: 495px !important;
+    min-height: 310px !important;
+    transform: scale(0.658) !important;
+    transform-origin: top left !important;
+    box-shadow: none !important;
+  }
+  .page-break-after {
+    page-break-after: always;
+    break-after: page;
+  }
+  .print-page-break {
+    page-break-before: always;
+    break-before: page;
   }
 }

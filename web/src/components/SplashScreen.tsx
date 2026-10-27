@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GraduationCap, Sparkles } from 'lucide-react';
+import { TrustLogo } from './TrustLogo';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -28,10 +29,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       <div className="flex flex-col items-center text-center p-8 max-w-md animate-fade-in">
         {/* Animated Icon Emblem */}
         <div className="relative mb-6">
-          <div className="w-24 h-24 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-2xl animate-bounce">
-            <GraduationCap className="w-14 h-14 text-white drop-shadow-md" />
+          <div className="p-3 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-2xl animate-bounce">
+            <TrustLogo variant="emblem" size="xl" />
           </div>
-          <div className="absolute -top-2 -right-2 bg-amber-300 text-orange-950 p-1.5 rounded-full shadow-lg">
+          <div className="absolute -top-1 -right-1 bg-amber-300 text-orange-950 p-2 rounded-full shadow-lg">
             <Sparkles className="w-5 h-5 fill-current" />
           </div>
         </div>

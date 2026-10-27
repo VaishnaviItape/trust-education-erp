@@ -29,6 +29,14 @@ import {
   Check,
   ChevronRight,
   ShieldCheck,
+  CreditCard,
+  ClipboardList,
+  CheckSquare,
+  Cpu,
+  Bus,
+  Bed,
+  Package,
+  School,
 } from 'lucide-react';
 import {
   BranchScope,
@@ -66,7 +74,138 @@ type MasterCategory =
   | 'ACADEMIC_YEARS'
   | 'COUNTRIES'
   | 'STATES'
-  | 'DISTRICTS';
+  | 'DISTRICTS'
+  | 'FEE_HEADS'
+  | 'FEE_GROUPS'
+  | 'EXAM_GROUPS'
+  | 'GRADING_SCALES'
+  | 'LEAVE_TYPES'
+  | 'COMPENSATION_BANDS'
+  | 'BIOMETRIC_DEVICES'
+  | 'TRANSPORT_VEHICLES'
+  | 'HOSTEL_ROOM_TYPES'
+  | 'INVENTORY_SUPPLIERS'
+  | 'ROLES_PERMISSIONS'
+  | 'INSTITUTES';
+
+export interface MasterFeeHead {
+  id: string;
+  name: string;
+  code: string;
+  frequency: 'Annual' | 'Semester' | 'Quarterly' | 'Per Term';
+  defaultAmount: number;
+  branchScope: 'ALL' | 'SCHOOL' | 'COLLEGE';
+  description: string;
+}
+
+export interface MasterFeeGroup {
+  id: string;
+  name: string;
+  code: string;
+  targetStandard: string;
+  totalAnnualFee: number;
+  installmentsAllowed: number;
+}
+
+export interface MasterExamGroup {
+  id: string;
+  name: string;
+  code: string;
+  weightagePercent: string;
+  termPeriod: string;
+  description: string;
+}
+
+export interface MasterGradingScale {
+  id: string;
+  grade: string;
+  minScore: number;
+  maxScore: number;
+  gpaPoint: number;
+  description: string;
+}
+
+export interface MasterLeaveType {
+  id: string;
+  name: string;
+  code: string;
+  annualQuota: number;
+  payType: 'Full Paid' | 'Official Duty' | 'Statutory Paid';
+  terms: string;
+}
+
+export interface MasterCompensationBand {
+  id: string;
+  roleName: string;
+  payScaleLevel: string;
+  basicSalaryRange: string;
+  daPercent: number;
+  hraPercent: number;
+  epfApplicable: string;
+}
+
+export interface MasterBiometricDevice {
+  id: string;
+  name: string;
+  model: string;
+  ipAddress: string;
+  port: number;
+  location: string;
+  usersMapped: number;
+  status: 'ONLINE' | 'OFFLINE';
+}
+
+export interface MasterTransportVehicle {
+  id: string;
+  vehicleNo: string;
+  busName: string;
+  capacity: number;
+  driverName: string;
+  rtoFitnessExpiry: string;
+  gpsIMEI: string;
+  status: 'ACTIVE' | 'MAINTENANCE';
+}
+
+export interface MasterHostelRoomType {
+  id: string;
+  typeName: string;
+  blockName: string;
+  monthlyFee: number;
+  amenities: string;
+  totalBeds: number;
+  vacantBeds: number;
+}
+
+export interface MasterInventorySupplier {
+  id: string;
+  supplierName: string;
+  contactPerson: string;
+  phone: string;
+  category: string;
+  city: string;
+  gstin: string;
+}
+
+export interface MasterRolePermission {
+  id: string;
+  roleName: string;
+  accessScope: string;
+  usersCount: number;
+  canManageFees: boolean;
+  canApproveAdmissions: boolean;
+  canExportAudit: boolean;
+}
+
+export interface MasterInstitute {
+  id: string;
+  instituteName: string;
+  regNo: string;
+  affiliation: string;
+  campusAddress: string;
+  principalName: string;
+  studentCapacity: number;
+  activeEnrollment: number;
+}
 
 export const AcademicMastersModule: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<MasterCategory>('STANDARDS');
@@ -90,6 +229,97 @@ export const AcademicMastersModule: React.FC = () => {
   const [countries, setCountries] = useState<MasterCountry[]>(() => MasterStore.getCountries());
   const [states, setStates] = useState<MasterState[]>(() => MasterStore.getStates());
   const [districts, setDistricts] = useState<MasterDistrict[]>(() => MasterStore.getDistricts());
+
+  // Domain Masters: Fee, Exams, HR, Campus, Org
+  const [feeHeads, setFeeHeads] = useState<MasterFeeHead[]>([
+    { id: 'fh-01', name: 'Tuition Fee', code: 'TUIT', frequency: 'Annual', defaultAmount: 22000, branchScope: 'ALL', description: 'Core academic instruction & curriculum fee' },
+    { id: 'fh-02', name: 'Term & Development Fee', code: 'TERM', frequency: 'Annual', defaultAmount: 6000, branchScope: 'ALL', description: 'School infrastructure, smart digital classrooms' },
+    { id: 'fh-03', name: 'Computer & Science Lab Fee', code: 'LAB', frequency: 'Annual', defaultAmount: 4000, branchScope: 'SCHOOL', description: 'Robotics, Physics, Chemistry, Biology labs' },
+    { id: 'fh-04', name: 'Commercial Kitchen Practical Fee', code: 'KIT', frequency: 'Semester', defaultAmount: 25000, branchScope: 'COLLEGE', description: 'Bakery ingredients, knives, uniform, BTK' },
+    { id: 'fh-05', name: 'GPS Bus Transport Service Fee', code: 'TRANS', frequency: 'Quarterly', defaultAmount: 8000, branchScope: 'SCHOOL', description: 'Air-conditioned bus with live parent GPS' },
+    { id: 'fh-06', name: 'Examination & Marksheet Fee', code: 'EXAM', frequency: 'Per Term', defaultAmount: 1500, branchScope: 'ALL', description: 'OMR sheets, hall ticket, report card laminations' },
+  ]);
+
+  const [feeGroups, setFeeGroups] = useState<MasterFeeGroup[]>([
+    { id: 'fg-01', name: 'Primary School Standard Fee Group (STD 1-5)', code: 'GRP-PRI', targetStandard: 'STD 1 to STD 5', totalAnnualFee: 32000, installmentsAllowed: 3 },
+    { id: 'fg-02', name: 'Middle & Secondary Fee Group (STD 6-10)', code: 'GRP-SEC', targetStandard: 'STD 6 to STD 10', totalAnnualFee: 38000, installmentsAllowed: 3 },
+    { id: 'fg-03', name: 'Junior College Science / Commerce (STD 11-12)', code: 'GRP-JC', targetStandard: 'STD 11 & STD 12', totalAnnualFee: 42000, installmentsAllowed: 2 },
+    { id: 'fg-04', name: 'B.Sc in Hotel Management Degree Program', code: 'GRP-BHM', targetStandard: 'Semester 1 to 6', totalAnnualFee: 75000, installmentsAllowed: 2 },
+    { id: 'fg-05', name: 'Diploma in Food Production & Bakery (1.5 Yrs)', code: 'GRP-DIP', targetStandard: '1.5-Year Diploma', totalAnnualFee: 55000, installmentsAllowed: 2 },
+  ]);
+
+  const [examGroups, setExamGroups] = useState<MasterExamGroup[]>([
+    { id: 'eg-01', name: 'Formative Assessment / Unit Tests (FA-1 & FA-2)', code: 'FA-TERM', weightagePercent: '20%', termPeriod: 'July & September', description: 'Continuous classroom evaluation' },
+    { id: 'eg-02', name: 'Semester 1 Summative Examination (SA-1)', code: 'SA-MID', weightagePercent: '40%', termPeriod: 'October', description: 'Mid-term board evaluation' },
+    { id: 'eg-03', name: 'Prelims Pre-Board Exam (STD 10 & 12)', code: 'PRE-BRD', weightagePercent: 'Mock', termPeriod: 'January', description: 'State & CBSE pre-board dress rehearsal' },
+    { id: 'eg-04', name: 'Annual Final Board Examination (SA-2)', code: 'SA-FIN', weightagePercent: '40%', termPeriod: 'March / April', description: 'Comprehensive annual scholastic evaluation' },
+    { id: 'eg-05', name: 'University Culinary Practicals & Viva Voce', code: 'UNIV-PRAC', weightagePercent: '50%', termPeriod: 'Every Semester', description: 'Hotel industry external jury exam' },
+  ]);
+
+  const [gradingScales, setGradingScales] = useState<MasterGradingScale[]>([
+    { id: 'grd-01', grade: 'A1', minScore: 91, maxScore: 100, gpaPoint: 10.0, description: 'Outstanding Academic Performance' },
+    { id: 'grd-02', grade: 'A2', minScore: 81, maxScore: 90, gpaPoint: 9.0, description: 'Excellent / Distinction' },
+    { id: 'grd-03', grade: 'B1', minScore: 71, maxScore: 80, gpaPoint: 8.0, description: 'Very Good' },
+    { id: 'grd-04', grade: 'B2', minScore: 61, maxScore: 70, gpaPoint: 7.0, description: 'Good / First Class' },
+    { id: 'grd-05', grade: 'C1', minScore: 51, maxScore: 60, gpaPoint: 6.0, description: 'Above Average' },
+    { id: 'grd-06', grade: 'C2', minScore: 41, maxScore: 50, gpaPoint: 5.0, description: 'Average' },
+    { id: 'grd-07', grade: 'D', minScore: 33, maxScore: 40, gpaPoint: 4.0, description: 'Passing Grade' },
+    { id: 'grd-08', grade: 'E', minScore: 0, maxScore: 32, gpaPoint: 0.0, description: 'Needs Improvement / Remedial Exam' },
+  ]);
+
+  const [leaveTypes, setLeaveTypes] = useState<MasterLeaveType[]>([
+    { id: 'lt-01', name: 'Casual Leave (CL)', code: 'CL', annualQuota: 12, payType: 'Full Paid', terms: 'Max 2 days consecutive without prior notice' },
+    { id: 'lt-02', name: 'Medical Leave (ML)', code: 'ML', annualQuota: 10, payType: 'Full Paid', terms: 'Certified medical practitioner certificate required' },
+    { id: 'lt-03', name: 'Earned Leave (EL)', code: 'EL', annualQuota: 15, payType: 'Full Paid', terms: 'Accumulated annual leave for permanent staff' },
+    { id: 'lt-04', name: 'On Duty Leave (OD)', code: 'OD', annualQuota: 10, payType: 'Official Duty', terms: 'Board exam moderation or university jury inspection' },
+    { id: 'lt-05', name: 'Maternity Leave', code: 'MAT', annualQuota: 180, payType: 'Statutory Paid', terms: 'Statutory paid leave for eligible female staff' },
+  ]);
+
+  const [compensationBands, setCompensationBands] = useState<MasterCompensationBand[]>([
+    { id: 'cmp-01', roleName: 'Principal / Director', payScaleLevel: 'Level 14', basicSalaryRange: '₹45,000 - ₹75,000', daPercent: 50, hraPercent: 20, epfApplicable: '12% Statutory' },
+    { id: 'cmp-02', roleName: 'Senior Chef / HOD', payScaleLevel: 'Level 11', basicSalaryRange: '₹35,000 - ₹55,000', daPercent: 50, hraPercent: 20, epfApplicable: '12% Statutory' },
+    { id: 'cmp-03', roleName: 'Post Graduate Teacher (PGT)', payScaleLevel: 'Level 10', basicSalaryRange: '₹30,000 - ₹48,000', daPercent: 50, hraPercent: 20, epfApplicable: '12% Statutory' },
+    { id: 'cmp-04', roleName: 'Trained Graduate Teacher (TGT)', payScaleLevel: 'Level 8', basicSalaryRange: '₹25,000 - ₹40,000', daPercent: 50, hraPercent: 20, epfApplicable: '12% Statutory' },
+    { id: 'cmp-05', roleName: 'Primary Teacher (PRT)', payScaleLevel: 'Level 6', basicSalaryRange: '₹20,000 - ₹32,000', daPercent: 50, hraPercent: 20, epfApplicable: '12% Statutory' },
+    { id: 'cmp-06', roleName: 'Bus Driver / Maintenance Crew', payScaleLevel: 'Level 4', basicSalaryRange: '₹15,000 - ₹24,000', daPercent: 50, hraPercent: 15, epfApplicable: '12% Statutory' },
+  ]);
+
+  const [biometricDevices, setBiometricDevices] = useState<MasterBiometricDevice[]>([
+    { id: 'bio-01', name: 'Main Campus Gate Entrance Biometric', model: 'ZKTeco SilkID G3', ipAddress: '192.168.1.201', port: 4370, location: 'Admin Block Front Entry', usersMapped: 68, status: 'ONLINE' },
+    { id: 'bio-02', name: 'Kitchen Labs & Culinary Block Biometric', model: 'Essl K90 Pro', ipAddress: '192.168.1.202', port: 4370, location: 'Culinary Arts Building', usersMapped: 42, status: 'ONLINE' },
+    { id: 'bio-03', name: 'School Staff Room Punch Terminal', model: 'BioStation 2', ipAddress: '192.168.1.203', port: 4370, location: 'Primary Staff Room', usersMapped: 35, status: 'ONLINE' },
+  ]);
+
+  const [transportVehicles, setTransportVehicles] = useState<MasterTransportVehicle[]>([
+    { id: 'veh-01', vehicleNo: 'MH-12-TR-4421', busName: 'School Bus #4 (Yellow Line)', capacity: 42, driverName: 'Pandurang Shinde (+91 98229 11001)', rtoFitnessExpiry: '2027-04-15', gpsIMEI: '864209041234567', status: 'ACTIVE' },
+    { id: 'veh-02', vehicleNo: 'MH-12-TR-4422', busName: 'School Bus #5 (City Loop)', capacity: 42, driverName: 'Santosh Gaikwad (+91 98229 11002)', rtoFitnessExpiry: '2027-06-20', gpsIMEI: '864209041234568', status: 'ACTIVE' },
+    { id: 'veh-03', vehicleNo: 'MH-12-TR-4423', busName: 'College Van (Solapur Shuttle)', capacity: 24, driverName: 'Sachin Kamble (+91 98229 11003)', rtoFitnessExpiry: '2026-12-10', gpsIMEI: '864209041234569', status: 'ACTIVE' },
+  ]);
+
+  const [hostelRoomTypes, setHostelRoomTypes] = useState<MasterHostelRoomType[]>([
+    { id: 'hrt-01', typeName: 'Standard 2-Bed Sharing (Boys Block)', blockName: 'Tagore Boys Block', monthlyFee: 4500, amenities: 'Attached Bath, Study Table, WiFi, Wardrobe', totalBeds: 60, vacantBeds: 8 },
+    { id: 'hrt-02', typeName: 'Standard 2-Bed Sharing (Girls Block)', blockName: 'Sarojini Girls Block', monthlyFee: 4500, amenities: 'Attached Bath, Study Table, WiFi, Geyser, Wardrobe', totalBeds: 50, vacantBeds: 5 },
+    { id: 'hrt-03', typeName: 'Deluxe Single Occupancy (Culinary Interns)', blockName: 'Executive Block A', monthlyFee: 7500, amenities: 'AC, Attached Bath, Refrigerator, Study Table', totalBeds: 15, vacantBeds: 2 },
+  ]);
+
+  const [inventorySuppliers, setInventorySuppliers] = useState<MasterInventorySupplier[]>([
+    { id: 'sup-01', supplierName: 'Solapur Commercial Kitchen Utensils & Knives', contactPerson: 'Anil Bhalerao', phone: '+91 98220 44551', category: 'Chef Toolkits & Bakery Equipment', city: 'Solapur', gstin: '27AABCS1429Q1Z8' },
+    { id: 'sup-02', supplierName: 'Navneet Education & Stationers Pvt Ltd', contactPerson: 'Kishore Gandhi', phone: '+91 98220 88992', category: 'Textbooks, Marksheets & Stationery', city: 'Pune', gstin: '27AAACN8821F1ZX' },
+    { id: 'sup-03', supplierName: 'Saraswati Science & Chemical Reagents', contactPerson: 'Dr. Vivek Mane', phone: '+91 98220 33221', category: 'Physics & Chemistry Lab Chemicals', city: 'Pandharpur', gstin: '27AABFS9901M1ZT' },
+  ]);
+
+  const [rolesPermissions, setRolesPermissions] = useState<MasterRolePermission[]>([
+    { id: 'rol-01', roleName: 'SUPERADMIN (Trustee / President)', accessScope: 'Full Master Read & Write Across School & College', usersCount: 2, canManageFees: true, canApproveAdmissions: true, canExportAudit: true },
+    { id: 'rol-02', roleName: 'BRANCH_ADMIN_SCHOOL', accessScope: 'Isolated School Administration (Modern Public School Bhose)', usersCount: 3, canManageFees: true, canApproveAdmissions: true, canExportAudit: true },
+    { id: 'rol-03', roleName: 'BRANCH_ADMIN_COLLEGE', accessScope: 'Isolated College Administration (Hotel Mgmt Solapur)', usersCount: 2, canManageFees: true, canApproveAdmissions: true, canExportAudit: true },
+    { id: 'rol-04', roleName: 'TEACHER / LECTURER', accessScope: 'Daily Attendance, OMR Marks Entry, Homework & Study Notes', usersCount: 38, canManageFees: false, canApproveAdmissions: false, canExportAudit: false },
+    { id: 'rol-05', roleName: 'ACCOUNTANT / CASHIER', accessScope: 'Fee Receipts, Defaulters, Trust Daybook & Bank Ledger', usersCount: 4, canManageFees: true, canApproveAdmissions: false, canExportAudit: true },
+  ]);
+
+  const [institutes, setInstitutes] = useState<MasterInstitute[]>([
+    { id: 'inst-sch-01', instituteName: 'Modern Public School And Junior College Bhose', regNo: 'MH/EDU/TR-18452/SOLAPUR', affiliation: 'CBSE Affiliation #1130842 & Maharashtra State Board', campusAddress: 'Bhose Campus, Tal. Pandharpur, Dist. Solapur', principalName: 'Dr. Sunita Kulkarni', studentCapacity: 600, activeEnrollment: 312 },
+    { id: 'inst-hm-01', instituteName: 'Modern College Of Hotel Management And Technology Solapur', regNo: 'MH/HIGHER-EDU/HM-4412/SOLAPUR', affiliation: 'Recognized by Solapur University & Tourism Council', campusAddress: 'Solapur City Campus, Hotgi Road, Solapur', principalName: 'Chef Sanjeev Menon (Director)', studentCapacity: 250, activeEnrollment: 148 },
+  ]);
 
   // Master Table Column Sorting State
   const [masterSortKey, setMasterSortKey] = useState<string | null>(null);
@@ -219,6 +449,54 @@ export const AcademicMastersModule: React.FC = () => {
         MasterStore.saveDistricts(next);
         break;
       }
+      case 'FEE_HEADS': {
+        setFeeHeads((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'FEE_GROUPS': {
+        setFeeGroups((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'EXAM_GROUPS': {
+        setExamGroups((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'GRADING_SCALES': {
+        setGradingScales((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'LEAVE_TYPES': {
+        setLeaveTypes((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'COMPENSATION_BANDS': {
+        setCompensationBands((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'BIOMETRIC_DEVICES': {
+        setBiometricDevices((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'TRANSPORT_VEHICLES': {
+        setTransportVehicles((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'HOSTEL_ROOM_TYPES': {
+        setHostelRoomTypes((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'INVENTORY_SUPPLIERS': {
+        setInventorySuppliers((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'ROLES_PERMISSIONS': {
+        setRolesPermissions((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
+      case 'INSTITUTES': {
+        setInstitutes((prev) => prev.map((x) => (x.id === item.id ? item : x)));
+        break;
+      }
     }
     setEditingMasterRecord(null);
   };
@@ -316,6 +594,54 @@ export const AcademicMastersModule: React.FC = () => {
         const next = districts.filter((x) => x.id !== id);
         setDistricts(next);
         MasterStore.saveDistricts(next);
+        break;
+      }
+      case 'FEE_HEADS': {
+        setFeeHeads((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'FEE_GROUPS': {
+        setFeeGroups((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'EXAM_GROUPS': {
+        setExamGroups((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'GRADING_SCALES': {
+        setGradingScales((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'LEAVE_TYPES': {
+        setLeaveTypes((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'COMPENSATION_BANDS': {
+        setCompensationBands((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'BIOMETRIC_DEVICES': {
+        setBiometricDevices((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'TRANSPORT_VEHICLES': {
+        setTransportVehicles((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'HOSTEL_ROOM_TYPES': {
+        setHostelRoomTypes((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'INVENTORY_SUPPLIERS': {
+        setInventorySuppliers((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'ROLES_PERMISSIONS': {
+        setRolesPermissions((prev) => prev.filter((x) => x.id !== id));
+        break;
+      }
+      case 'INSTITUTES': {
+        setInstitutes((prev) => prev.filter((x) => x.id !== id));
         break;
       }
     }
@@ -689,6 +1015,161 @@ export const AcademicMastersModule: React.FC = () => {
         MasterStore.saveDistricts(updated);
         break;
       }
+      case 'FEE_HEADS': {
+        const item: MasterFeeHead = {
+          id: slugId,
+          name: cleanName,
+          code: newMasterForm.code || 'FH-CUSTOM',
+          frequency: (newMasterForm.categoryOrType as any) || 'Annual',
+          defaultAmount: Number(newMasterForm.annualFee) || 5000,
+          branchScope: newMasterForm.branchScope,
+          description: newMasterForm.headOfDepartment || 'Institutional fee head',
+        };
+        setFeeHeads([item, ...feeHeads]);
+        break;
+      }
+      case 'FEE_GROUPS': {
+        const item: MasterFeeGroup = {
+          id: slugId,
+          name: cleanName,
+          code: newMasterForm.code || 'GRP-NEW',
+          targetStandard: newMasterForm.categoryOrType || 'All Standards',
+          totalAnnualFee: Number(newMasterForm.annualFee) || 40000,
+          installmentsAllowed: 3,
+        };
+        setFeeGroups([item, ...feeGroups]);
+        break;
+      }
+      case 'EXAM_GROUPS': {
+        const item: MasterExamGroup = {
+          id: slugId,
+          name: cleanName,
+          code: newMasterForm.code || 'EX-GRP',
+          weightagePercent: newMasterForm.categoryOrType || '25%',
+          termPeriod: 'Term Assessment',
+          description: newMasterForm.headOfDepartment || 'Curriculum examination evaluation',
+        };
+        setExamGroups([item, ...examGroups]);
+        break;
+      }
+      case 'GRADING_SCALES': {
+        const item: MasterGradingScale = {
+          id: slugId,
+          grade: cleanName.toUpperCase().slice(0, 4),
+          minScore: Number(newMasterForm.passingMarks) || 50,
+          maxScore: Number(newMasterForm.maxMarks) || 100,
+          gpaPoint: 8.0,
+          description: newMasterForm.headOfDepartment || 'Grading band',
+        };
+        setGradingScales([item, ...gradingScales]);
+        break;
+      }
+      case 'LEAVE_TYPES': {
+        const item: MasterLeaveType = {
+          id: slugId,
+          name: cleanName,
+          code: newMasterForm.code || 'LV',
+          annualQuota: Number(newMasterForm.capacity) || 12,
+          payType: 'Full Paid',
+          terms: newMasterForm.headOfDepartment || 'Standard leave entitlement',
+        };
+        setLeaveTypes([item, ...leaveTypes]);
+        break;
+      }
+      case 'COMPENSATION_BANDS': {
+        const item: MasterCompensationBand = {
+          id: slugId,
+          roleName: cleanName,
+          payScaleLevel: newMasterForm.code || 'Level 8',
+          basicSalaryRange: `₹${newMasterForm.annualFee || '25,000'} - ₹50,000`,
+          daPercent: 50,
+          hraPercent: 20,
+          epfApplicable: '12% Statutory',
+        };
+        setCompensationBands([item, ...compensationBands]);
+        break;
+      }
+      case 'BIOMETRIC_DEVICES': {
+        const item: MasterBiometricDevice = {
+          id: slugId,
+          name: cleanName,
+          model: newMasterForm.code || 'ZKTeco Pro',
+          ipAddress: '192.168.1.250',
+          port: 4370,
+          location: newMasterForm.wing || 'Campus Entrance',
+          usersMapped: 0,
+          status: 'ONLINE',
+        };
+        setBiometricDevices([item, ...biometricDevices]);
+        break;
+      }
+      case 'TRANSPORT_VEHICLES': {
+        const item: MasterTransportVehicle = {
+          id: slugId,
+          vehicleNo: newMasterForm.code || 'MH-12-TR-9999',
+          busName: cleanName,
+          capacity: Number(newMasterForm.capacity) || 40,
+          driverName: newMasterForm.headOfDepartment || 'Assigned Driver',
+          rtoFitnessExpiry: '2027-12-31',
+          gpsIMEI: '864209040000000',
+          status: 'ACTIVE',
+        };
+        setTransportVehicles([item, ...transportVehicles]);
+        break;
+      }
+      case 'HOSTEL_ROOM_TYPES': {
+        const item: MasterHostelRoomType = {
+          id: slugId,
+          typeName: cleanName,
+          blockName: newMasterForm.wing || 'Main Hostel Block',
+          monthlyFee: Number(newMasterForm.annualFee) || 5000,
+          amenities: newMasterForm.facilities || 'Study Table, Bed, Wardrobe',
+          totalBeds: Number(newMasterForm.capacity) || 20,
+          vacantBeds: Number(newMasterForm.capacity) || 20,
+        };
+        setHostelRoomTypes([item, ...hostelRoomTypes]);
+        break;
+      }
+      case 'INVENTORY_SUPPLIERS': {
+        const item: MasterInventorySupplier = {
+          id: slugId,
+          supplierName: cleanName,
+          contactPerson: newMasterForm.headOfDepartment || 'Manager',
+          phone: newMasterForm.phone || '+91 98220 00000',
+          category: newMasterForm.categoryOrType || 'General Supplies',
+          city: newMasterForm.state || 'Solapur',
+          gstin: newMasterForm.code || '27AABCS0000A1Z0',
+        };
+        setInventorySuppliers([item, ...inventorySuppliers]);
+        break;
+      }
+      case 'ROLES_PERMISSIONS': {
+        const item: MasterRolePermission = {
+          id: slugId,
+          roleName: cleanName,
+          accessScope: newMasterForm.headOfDepartment || 'Designated Module Access',
+          usersCount: 1,
+          canManageFees: false,
+          canApproveAdmissions: false,
+          canExportAudit: false,
+        };
+        setRolesPermissions([item, ...rolesPermissions]);
+        break;
+      }
+      case 'INSTITUTES': {
+        const item: MasterInstitute = {
+          id: slugId,
+          instituteName: cleanName,
+          regNo: newMasterForm.code || 'MH/EDU/TR-00000',
+          affiliation: newMasterForm.affiliationNo || 'Affiliated Institution',
+          campusAddress: newMasterForm.wing || 'Trust Campus, Solapur',
+          principalName: 'Principal in Charge',
+          studentCapacity: Number(newMasterForm.capacity) || 500,
+          activeEnrollment: 0,
+        };
+        setInstitutes([item, ...institutes]);
+        break;
+      }
       default:
         break;
     }
@@ -720,6 +1201,18 @@ export const AcademicMastersModule: React.FC = () => {
       countries,
       states,
       districts,
+      feeHeads,
+      feeGroups,
+      examGroups,
+      gradingScales,
+      leaveTypes,
+      compensationBands,
+      biometricDevices,
+      transportVehicles,
+      hostelRoomTypes,
+      inventorySuppliers,
+      rolesPermissions,
+      institutes,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -730,31 +1223,68 @@ export const AcademicMastersModule: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Nav categories config
+  // Nav categories config - 7 Structured Groups covering all 27 System Masters
   const categoryGroups = [
     {
-      groupTitle: 'Standard / Semester Masters',
+      groupTitle: '1. Curriculum & Classes',
       categories: [
-        { id: 'STANDARDS', label: 'Standard / Classes', icon: <GraduationCap className="w-4 h-4" />, count: standards.length },
-        { id: 'BOARDS', label: 'Boards', icon: <BookOpen className="w-4 h-4" />, count: boards.length },
-        { id: 'MEDIUMS', label: 'Mediums', icon: <Sparkles className="w-4 h-4" />, count: mediums.length },
+        { id: 'STANDARDS', label: 'Standards & Classes', icon: <GraduationCap className="w-4 h-4" />, count: standards.length },
+        { id: 'BOARDS', label: 'Boards & Councils', icon: <BookOpen className="w-4 h-4" />, count: boards.length },
+        { id: 'MEDIUMS', label: 'Mediums of Instruction', icon: <Sparkles className="w-4 h-4" />, count: mediums.length },
         { id: 'DIVISIONS', label: 'Divisions & Sections', icon: <Hash className="w-4 h-4" />, count: divisions.length },
-        { id: 'SUBJECTS', label: 'Subjects', icon: <BookOpen className="w-4 h-4" />, count: subjects.length },
+        { id: 'SUBJECTS', label: 'Subjects Master', icon: <BookOpen className="w-4 h-4" />, count: subjects.length },
         { id: 'CLASSROOMS', label: 'Classrooms & Labs', icon: <DoorOpen className="w-4 h-4" />, count: classrooms.length },
-        { id: 'DEPARTMENTS', label: 'Departments', icon: <Building className="w-4 h-4" />, count: departments.length },
-        { id: 'DESIGNATIONS', label: 'Designations', icon: <Award className="w-4 h-4" />, count: designations.length },
-        { id: 'TEACHERS', label: 'Teachers', icon: <Users className="w-4 h-4" />, count: teachers.length },
-        { id: 'STAFF', label: 'Staff Roster', icon: <Briefcase className="w-4 h-4" />, count: staff.length },
-        { id: 'ORIGINAL_DOCS', label: 'Original Documents', icon: <FileText className="w-4 h-4" />, count: documents.length },
       ],
     },
     {
-      groupTitle: 'Global Masters',
+      groupTitle: '2. Fees & Financials',
       categories: [
-        { id: 'ACADEMIC_YEARS', label: 'Academic Years', icon: <Calendar className="w-4 h-4" />, count: years.length },
-        { id: 'COUNTRIES', label: 'Countries', icon: <Globe className="w-4 h-4" />, count: countries.length },
-        { id: 'STATES', label: 'States', icon: <MapPin className="w-4 h-4" />, count: states.length },
-        { id: 'DISTRICTS', label: 'Districts', icon: <MapPin className="w-4 h-4" />, count: districts.length },
+        { id: 'FEE_GROUPS', label: 'Fee Groups & Structures', icon: <Layers className="w-4 h-4" />, count: feeGroups.length },
+        { id: 'FEE_HEADS', label: 'Fee Heads & Tariffs', icon: <CreditCard className="w-4 h-4" />, count: feeHeads.length },
+      ],
+    },
+    {
+      groupTitle: '3. Examinations',
+      categories: [
+        { id: 'EXAM_GROUPS', label: 'Exam Groups & Terms', icon: <ClipboardList className="w-4 h-4" />, count: examGroups.length },
+        { id: 'GRADING_SCALES', label: 'Grading Scales & GPA', icon: <CheckSquare className="w-4 h-4" />, count: gradingScales.length },
+      ],
+    },
+    {
+      groupTitle: '4. Staff, Faculty & HR',
+      categories: [
+        { id: 'DEPARTMENTS', label: 'Academic & Admin Depts', icon: <Building className="w-4 h-4" />, count: departments.length },
+        { id: 'DESIGNATIONS', label: 'Official Designations', icon: <Award className="w-4 h-4" />, count: designations.length },
+        { id: 'TEACHERS', label: 'Teachers & Faculty', icon: <Users className="w-4 h-4" />, count: teachers.length },
+        { id: 'STAFF', label: 'Staff Roster & Support', icon: <Briefcase className="w-4 h-4" />, count: staff.length },
+        { id: 'LEAVE_TYPES', label: 'Leave Types & Quotas', icon: <Calendar className="w-4 h-4" />, count: leaveTypes.length },
+        { id: 'COMPENSATION_BANDS', label: 'Compensation & Pay Scales', icon: <Briefcase className="w-4 h-4" />, count: compensationBands.length },
+      ],
+    },
+    {
+      groupTitle: '5. Campus & Logistics',
+      categories: [
+        { id: 'BIOMETRIC_DEVICES', label: 'Biometric Machines & IPs', icon: <Cpu className="w-4 h-4" />, count: biometricDevices.length },
+        { id: 'TRANSPORT_VEHICLES', label: 'Transport Bus Fleet', icon: <Bus className="w-4 h-4" />, count: transportVehicles.length },
+        { id: 'HOSTEL_ROOM_TYPES', label: 'Hostel Room Types & Beds', icon: <Bed className="w-4 h-4" />, count: hostelRoomTypes.length },
+        { id: 'INVENTORY_SUPPLIERS', label: 'Inventory Suppliers', icon: <Package className="w-4 h-4" />, count: inventorySuppliers.length },
+        { id: 'ORIGINAL_DOCS', label: 'Vault Original Documents', icon: <FileText className="w-4 h-4" />, count: documents.length },
+      ],
+    },
+    {
+      groupTitle: '6. Organization & Access',
+      categories: [
+        { id: 'INSTITUTES', label: 'Trust Institutes & Campuses', icon: <School className="w-4 h-4" />, count: institutes.length },
+        { id: 'ROLES_PERMISSIONS', label: 'Roles & Permission Matrix', icon: <ShieldCheck className="w-4 h-4" />, count: rolesPermissions.length },
+      ],
+    },
+    {
+      groupTitle: '7. Global & Geographic',
+      categories: [
+        { id: 'ACADEMIC_YEARS', label: 'Academic Session Years', icon: <Calendar className="w-4 h-4" />, count: years.length },
+        { id: 'COUNTRIES', label: 'Countries & Currencies', icon: <Globe className="w-4 h-4" />, count: countries.length },
+        { id: 'STATES', label: 'States & Capitals', icon: <MapPin className="w-4 h-4" />, count: states.length },
+        { id: 'DISTRICTS', label: 'Districts & Zones', icon: <MapPin className="w-4 h-4" />, count: districts.length },
       ],
     },
   ];
@@ -2168,6 +2698,1108 @@ export const AcademicMastersModule: React.FC = () => {
                 </table>
               </div>
             )}
+
+            {/* 16. FEE_GROUPS */}
+            {activeCategory === 'FEE_GROUPS' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="code" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Fee Group Name" sortKey="name" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Target Standards" sortKey="targetStandard" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Total Annual Fee" sortKey="totalAnnualFee" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Installments</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = feeGroups.filter((fg) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          fg.name.toLowerCase().includes(q) ||
+                          fg.code.toLowerCase().includes(q) ||
+                          fg.id.toLowerCase().includes(q) ||
+                          fg.targetStandard.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(8, 'Fee Groups');
+
+                      return sortMasterList(list).map((fg, index) => (
+                        <tr key={fg.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <Layers className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                              <span>{fg.name}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono ml-5.5">Code: {fg.code}</span>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(fg.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === fg.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{fg.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5 font-semibold text-slate-700">{fg.targetStandard}</td>
+                          <td className="p-3.5 font-bold text-slate-900">₹{fg.totalAnnualFee.toLocaleString('en-IN')}</td>
+                          <td className="p-3.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                              {fg.installmentsAllowed} Term Installments
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Active
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'FEE_GROUPS', item: { ...fg } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'FEE_GROUPS', id: fg.id, name: fg.name })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 17. FEE_HEADS */}
+            {activeCategory === 'FEE_HEADS' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="code" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Fee Head Name" sortKey="name" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Frequency" sortKey="frequency" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Default Tariff" sortKey="defaultAmount" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Scope" sortKey="branchScope" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Description</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = feeHeads.filter((fh) => {
+                        if (branchScopeFilter !== 'ALL' && fh.branchScope !== branchScopeFilter && fh.branchScope !== 'ALL') return false;
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          fh.name.toLowerCase().includes(q) ||
+                          fh.code.toLowerCase().includes(q) ||
+                          fh.id.toLowerCase().includes(q) ||
+                          fh.frequency.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(9, 'Fee Heads');
+
+                      return sortMasterList(list).map((fh, index) => (
+                        <tr key={fh.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>{fh.name}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono ml-5.5">Code: {fh.code}</span>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(fh.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === fh.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{fh.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                              {fh.frequency}
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-bold text-slate-900">₹{fh.defaultAmount.toLocaleString('en-IN')}</td>
+                          <td className="p-3.5">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                fh.branchScope === 'SCHOOL'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : fh.branchScope === 'COLLEGE'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {fh.branchScope}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-slate-600 text-xs max-w-xs truncate">{fh.description}</td>
+                          <td className="p-3.5">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Active
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'FEE_HEADS', item: { ...fh } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'FEE_HEADS', id: fh.id, name: fh.name })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 18. EXAM_GROUPS */}
+            {activeCategory === 'EXAM_GROUPS' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="code" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Exam Group Name" sortKey="name" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Weightage %" sortKey="weightagePercent" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Assessment Period" sortKey="termPeriod" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Description</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = examGroups.filter((eg) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          eg.name.toLowerCase().includes(q) ||
+                          eg.code.toLowerCase().includes(q) ||
+                          eg.id.toLowerCase().includes(q) ||
+                          eg.termPeriod.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(8, 'Exam Groups');
+
+                      return sortMasterList(list).map((eg, index) => (
+                        <tr key={eg.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <ClipboardList className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              <span>{eg.name}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono ml-5.5">Code: {eg.code}</span>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(eg.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === eg.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{eg.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
+                              {eg.weightagePercent}
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-semibold text-slate-800">{eg.termPeriod}</td>
+                          <td className="p-3.5 text-slate-600 max-w-xs truncate">{eg.description}</td>
+                          <td className="p-3.5">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Active
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'EXAM_GROUPS', item: { ...eg } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'EXAM_GROUPS', id: eg.id, name: eg.name })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 19. GRADING_SCALES */}
+            {activeCategory === 'GRADING_SCALES' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="grade" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Grade" sortKey="grade" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Score Band (%)" sortKey="minScore" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="GPA / Grade Point" sortKey="gpaPoint" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Performance Remarks</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = gradingScales.filter((gs) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          gs.grade.toLowerCase().includes(q) ||
+                          gs.description.toLowerCase().includes(q) ||
+                          gs.id.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(8, 'Grading Scales');
+
+                      return sortMasterList(list).map((gs, index) => (
+                        <tr key={gs.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-100 text-emerald-800 font-mono">
+                              {gs.grade}
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(gs.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === gs.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{gs.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5 font-bold text-slate-800">{gs.minScore}% - {gs.maxScore}%</td>
+                          <td className="p-3.5 font-extrabold text-blue-700">{gs.gpaPoint.toFixed(1)} / 10.0</td>
+                          <td className="p-3.5 text-slate-700 font-medium">{gs.description}</td>
+                          <td className="p-3.5">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Active
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'GRADING_SCALES', item: { ...gs } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'GRADING_SCALES', id: gs.id, name: gs.grade })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 20. LEAVE_TYPES */}
+            {activeCategory === 'LEAVE_TYPES' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="code" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Leave Type Name" sortKey="name" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Annual Quota" sortKey="annualQuota" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Pay Treatment" sortKey="payType" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Policy Terms & Conditions</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = leaveTypes.filter((lt) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          lt.name.toLowerCase().includes(q) ||
+                          lt.code.toLowerCase().includes(q) ||
+                          lt.id.toLowerCase().includes(q) ||
+                          lt.payType.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(8, 'Leave Types');
+
+                      return sortMasterList(list).map((lt, index) => (
+                        <tr key={lt.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              <span>{lt.name}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono ml-5.5">Code: {lt.code}</span>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(lt.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === lt.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{lt.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5 font-extrabold text-slate-900">{lt.annualQuota} Days / Year</td>
+                          <td className="p-3.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              {lt.payType}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-slate-600 max-w-xs truncate">{lt.terms}</td>
+                          <td className="p-3.5">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Active
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'LEAVE_TYPES', item: { ...lt } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'LEAVE_TYPES', id: lt.id, name: lt.name })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 21. COMPENSATION_BANDS */}
+            {activeCategory === 'COMPENSATION_BANDS' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="roleName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Role / Cadre" sortKey="roleName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Pay Scale Level" sortKey="payScaleLevel" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Basic Salary Range</th>
+                      <th className="p-3.5">DA %</th>
+                      <th className="p-3.5">HRA %</th>
+                      <th className="p-3.5">EPF Coverage</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = compensationBands.filter((cb) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          cb.roleName.toLowerCase().includes(q) ||
+                          cb.payScaleLevel.toLowerCase().includes(q) ||
+                          cb.id.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(9, 'Compensation Bands');
+
+                      return sortMasterList(list).map((cb, index) => (
+                        <tr key={cb.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <Briefcase className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                              <span>{cb.roleName}</span>
+                            </div>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(cb.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === cb.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{cb.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5 font-bold text-slate-700">{cb.payScaleLevel}</td>
+                          <td className="p-3.5 font-extrabold text-slate-900">{cb.basicSalaryRange}</td>
+                          <td className="p-3.5 font-bold text-emerald-700">{cb.daPercent}%</td>
+                          <td className="p-3.5 font-bold text-blue-700">{cb.hraPercent}%</td>
+                          <td className="p-3.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800">
+                              {cb.epfApplicable}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'COMPENSATION_BANDS', item: { ...cb } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'COMPENSATION_BANDS', id: cb.id, name: cb.roleName })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 22. BIOMETRIC_DEVICES */}
+            {activeCategory === 'BIOMETRIC_DEVICES' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="name" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Terminal Name & Model" sortKey="name" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Campus Location" sortKey="location" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">IP Address : Port</th>
+                      <SortableTh label="Users Mapped" sortKey="usersMapped" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = biometricDevices.filter((bd) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          bd.name.toLowerCase().includes(q) ||
+                          bd.model.toLowerCase().includes(q) ||
+                          bd.id.toLowerCase().includes(q) ||
+                          bd.location.toLowerCase().includes(q) ||
+                          bd.ipAddress.includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(8, 'Biometric Devices');
+
+                      return sortMasterList(list).map((bd, index) => (
+                        <tr key={bd.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <Cpu className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>{bd.name}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono ml-5.5">Hardware: {bd.model}</span>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(bd.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === bd.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{bd.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5 font-medium text-slate-800">{bd.location}</td>
+                          <td className="p-3.5 font-mono text-slate-600 font-semibold">{bd.ipAddress}:{bd.port}</td>
+                          <td className="p-3.5 font-bold text-slate-800">{bd.usersMapped} Active Personnel</td>
+                          <td className="p-3.5">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              {bd.status}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'BIOMETRIC_DEVICES', item: { ...bd } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'BIOMETRIC_DEVICES', id: bd.id, name: bd.name })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 23. TRANSPORT_VEHICLES */}
+            {activeCategory === 'TRANSPORT_VEHICLES' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="vehicleNo" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Bus Fleet Name & Reg No" sortKey="busName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Capacity" sortKey="capacity" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Assigned Driver & Phone</th>
+                      <th className="p-3.5">GPS IMEI Tracker</th>
+                      <th className="p-3.5">RTO Fitness Expiry</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = transportVehicles.filter((tv) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          tv.busName.toLowerCase().includes(q) ||
+                          tv.vehicleNo.toLowerCase().includes(q) ||
+                          tv.id.toLowerCase().includes(q) ||
+                          tv.driverName.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(9, 'Transport Vehicles');
+
+                      return sortMasterList(list).map((tv, index) => (
+                        <tr key={tv.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <Bus className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>{tv.busName}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono font-bold ml-5.5">Reg: {tv.vehicleNo}</span>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(tv.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === tv.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{tv.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5 font-bold text-slate-800">{tv.capacity} Seats</td>
+                          <td className="p-3.5 text-slate-700 font-medium">{tv.driverName}</td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">{tv.gpsIMEI}</td>
+                          <td className="p-3.5 font-bold text-slate-700">{tv.rtoFitnessExpiry}</td>
+                          <td className="p-3.5">
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Active Fleet
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'TRANSPORT_VEHICLES', item: { ...tv } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'TRANSPORT_VEHICLES', id: tv.id, name: tv.busName })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 24. HOSTEL_ROOM_TYPES */}
+            {activeCategory === 'HOSTEL_ROOM_TYPES' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="typeName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Room Category" sortKey="typeName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Block Name" sortKey="blockName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Monthly Tariff" sortKey="monthlyFee" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Bed Occupancy (Vacant / Total)</th>
+                      <th className="p-3.5">Amenities</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = hostelRoomTypes.filter((hr) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          hr.typeName.toLowerCase().includes(q) ||
+                          hr.blockName.toLowerCase().includes(q) ||
+                          hr.id.toLowerCase().includes(q) ||
+                          hr.amenities.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(8, 'Hostel Room Types');
+
+                      return sortMasterList(list).map((hr, index) => (
+                        <tr key={hr.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <Bed className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              <span>{hr.typeName}</span>
+                            </div>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(hr.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === hr.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{hr.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5 font-semibold text-slate-700">{hr.blockName}</td>
+                          <td className="p-3.5 font-bold text-slate-900">₹{hr.monthlyFee.toLocaleString('en-IN')}/mo</td>
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-emerald-700">{hr.vacantBeds} Vacant</span>
+                              <span className="text-slate-400">/</span>
+                              <span className="text-slate-600 font-medium">{hr.totalBeds} Total Beds</span>
+                            </div>
+                          </td>
+                          <td className="p-3.5 text-slate-600 max-w-xs truncate">{hr.amenities}</td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'HOSTEL_ROOM_TYPES', item: { ...hr } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'HOSTEL_ROOM_TYPES', id: hr.id, name: hr.typeName })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 25. INVENTORY_SUPPLIERS */}
+            {activeCategory === 'INVENTORY_SUPPLIERS' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="supplierName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Supplier / Vendor Firm" sortKey="supplierName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Supply Category" sortKey="category" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Contact Person & Phone</th>
+                      <SortableTh label="City" sortKey="city" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">GSTIN Number</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = inventorySuppliers.filter((is) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          is.supplierName.toLowerCase().includes(q) ||
+                          is.category.toLowerCase().includes(q) ||
+                          is.id.toLowerCase().includes(q) ||
+                          is.city.toLowerCase().includes(q) ||
+                          is.gstin.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(8, 'Inventory Suppliers');
+
+                      return sortMasterList(list).map((is, index) => (
+                        <tr key={is.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <Package className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                              <span>{is.supplierName}</span>
+                            </div>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(is.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === is.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{is.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800">
+                              {is.category}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-slate-800 font-medium">
+                            <div>{is.contactPerson}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{is.phone}</div>
+                          </td>
+                          <td className="p-3.5 font-semibold text-slate-700">{is.city}</td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">{is.gstin}</td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'INVENTORY_SUPPLIERS', item: { ...is } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'INVENTORY_SUPPLIERS', id: is.id, name: is.supplierName })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 26. ROLES_PERMISSIONS */}
+            {activeCategory === 'ROLES_PERMISSIONS' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="roleName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="System Role" sortKey="roleName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Campus Authority & Scope</th>
+                      <SortableTh label="Users Count" sortKey="usersCount" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5 text-center">Fee Ledger</th>
+                      <th className="p-3.5 text-center">Admissions</th>
+                      <th className="p-3.5 text-center">Audit Reports</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = rolesPermissions.filter((rp) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          rp.roleName.toLowerCase().includes(q) ||
+                          rp.accessScope.toLowerCase().includes(q) ||
+                          rp.id.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(9, 'Roles & Permissions');
+
+                      return sortMasterList(list).map((rp, index) => (
+                        <tr key={rp.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              <span>{rp.roleName}</span>
+                            </div>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(rp.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === rp.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{rp.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5 text-slate-700 font-medium max-w-xs">{rp.accessScope}</td>
+                          <td className="p-3.5 font-bold text-slate-800">{rp.usersCount} Assigned</td>
+                          <td className="p-3.5 text-center">
+                            {rp.canManageFees ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Granted</span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-400">Locked</span>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-center">
+                            {rp.canApproveAdmissions ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Granted</span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-400">Locked</span>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-center">
+                            {rp.canExportAudit ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Granted</span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-400">Locked</span>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'ROLES_PERMISSIONS', item: { ...rp } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'ROLES_PERMISSIONS', id: rp.id, name: rp.roleName })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 27. INSTITUTES */}
+            {activeCategory === 'INSTITUTES' && (
+              <div className="erp-table-scroll">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-2xs">
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                      <SortableTh label="Sr. No." sortKey="instituteName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} align="center" className="w-12 text-center" />
+                      <SortableTh label="Educational Institute" sortKey="instituteName" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <SortableTh label="Master ID" sortKey="id" currentSortKey={masterSortKey} currentDirection={masterSortDir} onSort={handleMasterSort} className="p-3.5" />
+                      <th className="p-3.5">Registration & Affiliation</th>
+                      <th className="p-3.5">Campus Address</th>
+                      <th className="p-3.5">Principal / Director</th>
+                      <th className="p-3.5">Enrollment / Capacity</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const list = institutes.filter((inst) => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return (
+                          inst.instituteName.toLowerCase().includes(q) ||
+                          inst.regNo.toLowerCase().includes(q) ||
+                          inst.id.toLowerCase().includes(q) ||
+                          inst.campusAddress.toLowerCase().includes(q)
+                        );
+                      });
+                      if (list.length === 0) return renderEmptyRow(8, 'Trust Institutes');
+
+                      return sortMasterList(list).map((inst, index) => (
+                        <tr key={inst.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                          <td className="p-3.5 font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <School className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                              <span>{inst.instituteName}</span>
+                            </div>
+                          </td>
+                          <td className="p-3.5 font-mono text-[11px] text-slate-600">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(inst.id)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors cursor-pointer"
+                              title="Click to copy Master ID"
+                            >
+                              {copiedId === inst.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{inst.id}</span>
+                            </button>
+                          </td>
+                          <td className="p-3.5 text-slate-700 font-medium">
+                            <div className="font-bold text-slate-800">{inst.regNo}</div>
+                            <div className="text-[10px] text-slate-500">{inst.affiliation}</div>
+                          </td>
+                          <td className="p-3.5 text-slate-600 max-w-xs">{inst.campusAddress}</td>
+                          <td className="p-3.5 font-bold text-slate-800">{inst.principalName}</td>
+                          <td className="p-3.5">
+                            <span className="font-extrabold text-orange-600">{inst.activeEnrollment}</span>
+                            <span className="text-slate-400"> / </span>
+                            <span className="text-slate-600 font-bold">{inst.studentCapacity} Seats</span>
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingMasterRecord({ category: 'INSTITUTES', item: { ...inst } })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Edit record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingMasterRecord({ category: 'INSTITUTES', id: inst.id, name: inst.instituteName })}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                                title="Delete record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2212,24 +3844,46 @@ export const AcademicMastersModule: React.FC = () => {
                   onChange={(e) => setModalCategory(e.target.value as MasterCategory)}
                   className="w-full font-bold px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-orange-500 text-slate-800"
                 >
-                  <optgroup label="Standard / Semester Masters">
+                  <optgroup label="1. Curriculum & Classes">
                     <option value="STANDARDS">1. Standards & Semesters (School & College)</option>
                     <option value="BOARDS">2. Boards & Affiliating Bodies</option>
                     <option value="MEDIUMS">3. Mediums of Instruction</option>
                     <option value="DIVISIONS">4. Divisions & Class Sections</option>
                     <option value="SUBJECTS">5. Subjects Master</option>
                     <option value="CLASSROOMS">6. Classrooms & Culinary / Lab Facilities</option>
-                    <option value="DEPARTMENTS">7. Academic Departments</option>
-                    <option value="DESIGNATIONS">8. Designations & Cadres</option>
-                    <option value="TEACHERS">9. Teachers & Faculty Directory</option>
-                    <option value="STAFF">10. Staff Roster</option>
-                    <option value="ORIGINAL_DOCS">11. Original Documents Vault Checklist</option>
                   </optgroup>
-                  <optgroup label="Global Masters">
-                    <option value="ACADEMIC_YEARS">12. Academic Session Years</option>
-                    <option value="COUNTRIES">13. Global Countries</option>
-                    <option value="STATES">14. States & Provinces</option>
-                    <option value="DISTRICTS">15. Districts & Divisions</option>
+                  <optgroup label="2. Fees & Financials">
+                    <option value="FEE_GROUPS">7. Fee Groups & Installments</option>
+                    <option value="FEE_HEADS">8. Fee Heads & Standard Tariffs</option>
+                  </optgroup>
+                  <optgroup label="3. Examinations">
+                    <option value="EXAM_GROUPS">9. Examination Groups & Weightage</option>
+                    <option value="GRADING_SCALES">10. Grading Scales & GPA Criteria</option>
+                  </optgroup>
+                  <optgroup label="4. Staff, Faculty & HR">
+                    <option value="DEPARTMENTS">11. Academic & Admin Departments</option>
+                    <option value="DESIGNATIONS">12. Designations & Cadres</option>
+                    <option value="TEACHERS">13. Teachers & Faculty Directory</option>
+                    <option value="STAFF">14. Staff Roster & Operational Crew</option>
+                    <option value="LEAVE_TYPES">15. Leave Types & Quotas</option>
+                    <option value="COMPENSATION_BANDS">16. Compensation Bands & Pay Scales</option>
+                  </optgroup>
+                  <optgroup label="5. Campus & Logistics">
+                    <option value="BIOMETRIC_DEVICES">17. Biometric Punch Terminals</option>
+                    <option value="TRANSPORT_VEHICLES">18. Transport Bus Fleet & Drivers</option>
+                    <option value="HOSTEL_ROOM_TYPES">19. Hostel Room Types & Capacities</option>
+                    <option value="INVENTORY_SUPPLIERS">20. Inventory Suppliers & Vendors</option>
+                    <option value="ORIGINAL_DOCS">21. Original Documents Vault Checklist</option>
+                  </optgroup>
+                  <optgroup label="6. Organization & Access">
+                    <option value="INSTITUTES">22. Trust Educational Institutes</option>
+                    <option value="ROLES_PERMISSIONS">23. Roles & Security Matrix</option>
+                  </optgroup>
+                  <optgroup label="7. Global & Geographic">
+                    <option value="ACADEMIC_YEARS">24. Academic Session Years</option>
+                    <option value="COUNTRIES">25. Global Countries</option>
+                    <option value="STATES">26. States & Provinces</option>
+                    <option value="DISTRICTS">27. Districts & Administrative Divisions</option>
                   </optgroup>
                 </select>
               </div>

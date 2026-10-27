@@ -23,6 +23,13 @@ import { Student, FeeReceipt } from '../types';
 import { exportToExcel, exportToPdf, ExportColumn } from '../utils/exportUtils';
 import { FilterBar } from './FilterBar';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
+import { PrintableFeeReceiptModal } from './PrintableFeeReceiptModal';
+import {
+  generateFeeBreakdown,
+  numberToWordsINR,
+  numberToMarathiWordsINR,
+} from '../utils/feeReceiptUtils';
 
 interface FeeLedgerModuleProps {
   students: Student[];
@@ -102,6 +109,15 @@ export const FeeLedgerModule: React.FC<FeeLedgerModuleProps> = ({
     defaultDirection: 'desc',
   });
 
+  // Client-side pagination
+  const {
+    currentPage: feePage,
+    setCurrentPage: setFeePage,
+    pageSize: feePageSize,
+    setPageSize: setFeePageSize,
+    paginatedItems: paginatedReceipts,
+  } = usePagination<FeeReceipt>(sortedReceipts, 10);
+
   const handleExportExcel = (onlyFiltered: boolean) => {
     const dataset = onlyFiltered ? filteredReceipts : receipts;
     const columns: ExportColumn[] = [
@@ -171,19 +187,47 @@ export const FeeLedgerModule: React.FC<FeeLedgerModuleProps> = ({
     const amt = Number(collectAmount);
     onCollectFee(stu.id, amt, paymentMode);
 
+    const isSchool = stu.branchId === 'branch-sch-01';
+    const breakdown = generateFeeBreakdown(amt, isSchool ? 'SCHOOL' : 'COLLEGE');
+    const previouslyPaid = stu.feePaid;
+    const remainingBalance = Math.max(0, stu.feeTotal - (stu.feePaid + amt));
+
     const generated: FeeReceipt = {
       id: `rcp-${Date.now()}`,
-      receiptNo: `RCP-${stu.branchId === 'branch-sch-01' ? 'SCH' : 'HM'}-2026-${Math.floor(100 + Math.random() * 900)}`,
+      receiptNo: `RCP-${isSchool ? 'SCH' : 'HM'}-2026-${Math.floor(100 + Math.random() * 900)}`,
       studentId: stu.id,
       studentName: stu.name,
+      studentNameMarathi: stu.nameMarathi,
       branchName:
-        stu.branchId === 'branch-sch-01'
+        isSchool
           ? 'Modern Public School And Junior College Bhose'
           : 'Modern College Of Hotel Management And Technology Solapur',
+      standardOrGrade: stu.gradeOrSemester,
+      division: stu.division || 'A',
+      rollNo: stu.rollNo,
+      admissionNo: stu.admissionNo,
+      grNumber: stu.grNumber,
+      academicYear: academicYear,
+      parentName: stu.parentName || stu.fatherName,
+      parentPhone: stu.parentPhone,
+      category: stu.category || 'General',
       amount: amt,
+      totalAnnualFee: stu.feeTotal,
+      previouslyPaid,
+      remainingBalance,
       paymentMode,
+      transactionReference:
+        paymentMode === 'UPI'
+          ? `UPI/UTR-${Math.floor(100000000000 + Math.random() * 900000000000)}`
+          : paymentMode === 'CHEQUE'
+          ? `CHQ-${Math.floor(100000 + Math.random() * 900000)}`
+          : `CASH-REC-${Math.floor(1000 + Math.random() * 9000)}`,
       date: new Date().toISOString().split('T')[0],
-      installmentNo: 2,
+      installmentNo: `Installment ${stu.feePaid > 0 ? 2 : 1} (${academicYear})`,
+      feeBreakdown: breakdown,
+      amountInWords: numberToWordsINR(amt),
+      amountInWordsMarathi: numberToMarathiWordsINR(amt),
+      cashierName: 'Accounts Officer (Central Trust Office)',
       status: 'PAID',
     };
 
@@ -417,11 +461,13 @@ export const FeeLedgerModule: React.FC<FeeLedgerModuleProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {sortedReceipts.map((rcp, index) => (
-                <tr key={rcp.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-3.5 px-3 text-center font-bold text-slate-500 font-mono text-xs">
-                    {index + 1}
-                  </td>
+              {paginatedReceipts.map((rcp, index) => {
+                const globalIndex = (feePage - 1) * feePageSize + index + 1;
+                return (
+                  <tr key={rcp.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3.5 px-3 text-center font-bold text-slate-500 font-mono text-xs">
+                      {globalIndex}
+                    </td>
                   <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{rcp.receiptNo}</td>
                   <td className="py-3.5 px-4 font-bold text-slate-900">{rcp.studentName}</td>
                   <td className="py-3.5 px-4">
@@ -472,11 +518,23 @@ export const FeeLedgerModule: React.FC<FeeLedgerModuleProps> = ({
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
+
+      {/* Fee Receipts Table Pagination Controls */}
+      <TablePagination
+        currentPage={feePage}
+        totalItems={sortedReceipts.length}
+        pageSize={feePageSize}
+        pageSizeOptions={[5, 10, 25, 50, 100]}
+        onPageChange={setFeePage}
+        onPageSizeChange={setFeePageSize}
+        itemName="receipts"
+      />
+    </div>
 
       {/* 4. Modal: Collect Fee Payment */}
       {showCollectModal && (
@@ -568,56 +626,13 @@ export const FeeLedgerModule: React.FC<FeeLedgerModuleProps> = ({
         </div>
       )}
 
-      {/* 5. Modal: Digital Fee Receipt */}
+      {/* 5. Modal: Printable Structured Fee Receipt */}
       {activeReceipt && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 animate-scale-in text-center">
-            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <h4 className="font-extrabold text-slate-900 text-base">Payment Receipt Issued</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">Zep Foundation Bhose ERP</p>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 my-4 text-left space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Receipt No:</span>
-                <span className="font-mono font-bold text-slate-900">{activeReceipt.receiptNo}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Student:</span>
-                <span className="font-bold text-slate-900">{activeReceipt.studentName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Branch:</span>
-                <span className="font-semibold text-slate-700 text-[11px]">{activeReceipt.branchName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Payment Mode:</span>
-                <span className="font-bold text-slate-800">{activeReceipt.paymentMode}</span>
-              </div>
-              <div className="flex justify-between border-t border-slate-200 pt-2 font-bold">
-                <span className="text-slate-700">Amount Paid:</span>
-                <span className="text-emerald-600 font-extrabold text-sm">₹ {activeReceipt.amount.toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setActiveReceipt(null)}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl text-xs"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                Print
-              </button>
-            </div>
-          </div>
-        </div>
+        <PrintableFeeReceiptModal
+          receipt={activeReceipt}
+          student={students.find((s) => s.id === activeReceipt.studentId)}
+          onClose={() => setActiveReceipt(null)}
+        />
       )}
       {/* Modal: Edit Receipt */}
       {editingReceipt && (

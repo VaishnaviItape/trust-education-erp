@@ -65,6 +65,9 @@ export interface MasterClassroom {
   floor: string;
   capacity: number;
   facilities: string[];
+  assignedTeacherId?: string;
+  assignedTeacherName?: string;
+  assignedClassGrade?: string;
   status: 'ACTIVE' | 'INACTIVE';
 }
 
@@ -539,19 +542,19 @@ export const INITIAL_SUBJECTS: MasterSubject[] = [
 
 export const INITIAL_CLASSROOMS: MasterClassroom[] = [
   // School Classrooms & Labs
-  { id: 'rm-sch-101', name: 'Room 101 (Smart Interactive Board)', roomCode: 'SCH-101', type: 'CLASSROOM', branchScope: 'SCHOOL', wing: 'North Wing', floor: '1st Floor', capacity: 45, facilities: ['Digital Projector', 'CCTV Surveillance', 'PA System'], status: 'ACTIVE' },
-  { id: 'rm-sch-102', name: 'Room 102 (Smart Interactive Board)', roomCode: 'SCH-102', type: 'CLASSROOM', branchScope: 'SCHOOL', wing: 'North Wing', floor: '1st Floor', capacity: 45, facilities: ['Digital Projector', 'CCTV Surveillance', 'PA System'], status: 'ACTIVE' },
-  { id: 'rm-sch-201', name: 'Room 201 (Senior Secondary Wing)', roomCode: 'SCH-201', type: 'CLASSROOM', branchScope: 'SCHOOL', wing: 'South Wing', floor: '2nd Floor', capacity: 50, facilities: ['Smart TV', 'Podium', 'Acoustic Ceiling'], status: 'ACTIVE' },
-  { id: 'rm-sch-sci', name: 'C.V. Raman Integrated Science Lab', roomCode: 'SCH-SCI-LAB', type: 'SCIENCE_LAB', branchScope: 'SCHOOL', wing: 'East Wing', floor: '2nd Floor', capacity: 40, facilities: ['Gas Burners', 'Microscopes', 'Fume Hood', 'Safety Showers'], status: 'ACTIVE' },
-  { id: 'rm-sch-comp', name: 'Alan Turing Computer Lab', roomCode: 'SCH-COMP-LAB', type: 'COMPUTER_LAB', branchScope: 'SCHOOL', wing: 'West Wing', floor: '1st Floor', capacity: 45, facilities: ['45 Core i5 Desktops', 'Fiber Optical Gigabit LAN', 'Online UPS Backup'], status: 'ACTIVE' },
+  { id: 'rm-sch-101', name: 'Room 101 (Smart Interactive Board)', roomCode: 'SCH-101', type: 'CLASSROOM', branchScope: 'SCHOOL', wing: 'North Wing', floor: '1st Floor', capacity: 45, facilities: ['Digital Projector', 'CCTV Surveillance', 'PA System'], assignedTeacherId: 'tch-sch-02', assignedTeacherName: 'Rajendra Patil', assignedClassGrade: 'Class 7-A', status: 'ACTIVE' },
+  { id: 'rm-sch-102', name: 'Room 102 (Smart Interactive Board)', roomCode: 'SCH-102', type: 'CLASSROOM', branchScope: 'SCHOOL', wing: 'North Wing', floor: '1st Floor', capacity: 45, facilities: ['Digital Projector', 'CCTV Surveillance', 'PA System'], assignedTeacherId: 'tch-sch-03', assignedTeacherName: 'Neha Joshi', assignedClassGrade: 'Class 8-A', status: 'ACTIVE' },
+  { id: 'rm-sch-201', name: 'Room 201 (Senior Secondary Wing)', roomCode: 'SCH-201', type: 'CLASSROOM', branchScope: 'SCHOOL', wing: 'South Wing', floor: '2nd Floor', capacity: 50, facilities: ['Smart TV', 'Podium', 'Acoustic Ceiling'], assignedTeacherId: 'tch-sch-01', assignedTeacherName: 'Sunita Kulkarni', assignedClassGrade: 'Class 10-A', status: 'ACTIVE' },
+  { id: 'rm-sch-sci', name: 'C.V. Raman Integrated Science Lab', roomCode: 'SCH-SCI-LAB', type: 'SCIENCE_LAB', branchScope: 'SCHOOL', wing: 'East Wing', floor: '2nd Floor', capacity: 40, facilities: ['Gas Burners', 'Microscopes', 'Fume Hood', 'Safety Showers'], assignedTeacherName: 'Unassigned', status: 'ACTIVE' },
+  { id: 'rm-sch-comp', name: 'Alan Turing Computer Lab', roomCode: 'SCH-COMP-LAB', type: 'COMPUTER_LAB', branchScope: 'SCHOOL', wing: 'West Wing', floor: '1st Floor', capacity: 45, facilities: ['45 Core i5 Desktops', 'Fiber Optical Gigabit LAN', 'Online UPS Backup'], assignedTeacherName: 'Unassigned', status: 'ACTIVE' },
 
   // College Commercial Kitchens & Labs
-  { id: 'lab-col-btk', name: 'Basic Training Kitchen (BTK)', roomCode: 'COL-BTK-01', type: 'KITCHEN_LAB', branchScope: 'COLLEGE', wing: 'Culinary Block', floor: 'Ground Floor', capacity: 24, facilities: ['24 Stainless Steel Workstations', 'Individual LPG Ranges', 'Knife Sharpening Station', 'Double Sink Units'], status: 'ACTIVE' },
-  { id: 'lab-col-qfk', name: 'Quantity Food Kitchen (QFK - Bulk Culinary)', roomCode: 'COL-QFK-02', type: 'KITCHEN_LAB', branchScope: 'COLLEGE', wing: 'Culinary Block', floor: 'Ground Floor', capacity: 30, facilities: ['Tilting Bratt Pan', 'Steam Jacketed Kettles', 'Commercial Deck Ovens', 'Walk-in Cold Storage'], status: 'ACTIVE' },
-  { id: 'lab-col-atk', name: 'Advance Training Kitchen (ATK - Ala-Carte)', roomCode: 'COL-ATK-03', type: 'KITCHEN_LAB', branchScope: 'COLLEGE', wing: 'Culinary Block', floor: '1st Floor', capacity: 20, facilities: ['Salamander Grills', 'Sous Vide Precision Cookers', 'Combi Steam Oven', 'Plating Pass Counter'], status: 'ACTIVE' },
-  { id: 'lab-col-bakery', name: 'European Bakery & Patisserie Studio', roomCode: 'COL-BAK-04', type: 'KITCHEN_LAB', branchScope: 'COLLEGE', wing: 'Culinary Block', floor: '1st Floor', capacity: 24, facilities: ['Dough Sheeter', 'Proving Chamber', 'Planetary Mixers', 'Granite Tempering Table'], status: 'ACTIVE' },
-  { id: 'lab-col-mockbar', name: 'Training Restaurant & Mocktail Mixology Bar', roomCode: 'COL-BAR-05', type: 'CLASSROOM', branchScope: 'COLLEGE', wing: 'Hospitality Pavilion', floor: '1st Floor', capacity: 36, facilities: ['32 Cover Banquet Table Setup', 'Under-counter Glass Washer', 'Espresso Machine', 'Gueridon Flambé Cart'], status: 'ACTIVE' },
-  { id: 'rm-col-fo-suite', name: 'Front Desk & Fidelio PMS Simulation Suite', roomCode: 'COL-FO-06', type: 'COMPUTER_LAB', branchScope: 'COLLEGE', wing: 'Admin Complex', floor: 'Ground Floor', capacity: 25, facilities: ['Keycard Encoder', 'Touchscreen Point of Sale', 'OPERA Cloud Terminal'], status: 'ACTIVE' },
+  { id: 'lab-col-btk', name: 'Basic Training Kitchen (BTK)', roomCode: 'COL-BTK-01', type: 'KITCHEN_LAB', branchScope: 'COLLEGE', wing: 'Culinary Block', floor: 'Ground Floor', capacity: 24, facilities: ['24 Stainless Steel Workstations', 'Individual LPG Ranges', 'Knife Sharpening Station', 'Double Sink Units'], assignedTeacherId: 'tch-col-01', assignedTeacherName: 'Chef Anand Deshpande', assignedClassGrade: 'B.Sc H&HA Sem-1', status: 'ACTIVE' },
+  { id: 'lab-col-qfk', name: 'Quantity Food Kitchen (QFK - Bulk Culinary)', roomCode: 'COL-QFK-02', type: 'KITCHEN_LAB', branchScope: 'COLLEGE', wing: 'Culinary Block', floor: 'Ground Floor', capacity: 30, facilities: ['Tilting Bratt Pan', 'Steam Jacketed Kettles', 'Commercial Deck Ovens', 'Walk-in Cold Storage'], assignedTeacherName: 'Unassigned', status: 'ACTIVE' },
+  { id: 'lab-col-atk', name: 'Advance Training Kitchen (ATK - Ala-Carte)', roomCode: 'COL-ATK-03', type: 'KITCHEN_LAB', branchScope: 'COLLEGE', wing: 'Culinary Block', floor: '1st Floor', capacity: 20, facilities: ['Salamander Grills', 'Sous Vide Precision Cookers', 'Combi Steam Oven', 'Plating Pass Counter'], assignedTeacherName: 'Unassigned', status: 'ACTIVE' },
+  { id: 'lab-col-bakery', name: 'European Bakery & Patisserie Studio', roomCode: 'COL-BAK-04', type: 'KITCHEN_LAB', branchScope: 'COLLEGE', wing: 'Culinary Block', floor: '1st Floor', capacity: 24, facilities: ['Dough Sheeter', 'Proving Chamber', 'Planetary Mixers', 'Granite Tempering Table'], assignedTeacherId: 'tch-col-02', assignedTeacherName: 'Chef Meera Jadhav', assignedClassGrade: 'Diploma in Bakery', status: 'ACTIVE' },
+  { id: 'lab-col-mockbar', name: 'Training Restaurant & Mocktail Mixology Bar', roomCode: 'COL-BAR-05', type: 'CLASSROOM', branchScope: 'COLLEGE', wing: 'Hospitality Pavilion', floor: '1st Floor', capacity: 36, facilities: ['32 Cover Banquet Table Setup', 'Under-counter Glass Washer', 'Espresso Machine', 'Gueridon Flambé Cart'], assignedTeacherId: 'tch-col-03', assignedTeacherName: 'Prashant More', assignedClassGrade: 'B.Sc H&HA Sem-3', status: 'ACTIVE' },
+  { id: 'rm-col-fo-suite', name: 'Front Desk & Fidelio PMS Simulation Suite', roomCode: 'COL-FO-06', type: 'COMPUTER_LAB', branchScope: 'COLLEGE', wing: 'Admin Complex', floor: 'Ground Floor', capacity: 25, facilities: ['Keycard Encoder', 'Touchscreen Point of Sale', 'OPERA Cloud Terminal'], assignedTeacherId: 'tch-col-04', assignedTeacherName: 'Kavita Solanke', assignedClassGrade: 'Front Office Diploma', status: 'ACTIVE' },
 ];
 
 export const INITIAL_DEPARTMENTS: MasterDepartment[] = [

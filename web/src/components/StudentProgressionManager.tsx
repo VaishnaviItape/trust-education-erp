@@ -20,6 +20,7 @@ import {
 import { Student, StudentProgressionRecord } from '../types';
 import { envConfig } from '../config/env';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
 
 interface StudentProgressionManagerProps {
   students: Student[];
@@ -133,6 +134,22 @@ export const StudentProgressionManager: React.FC<StudentProgressionManagerProps>
     defaultKey: null,
     defaultDirection: 'desc',
   });
+
+  const {
+    currentPage: candPage,
+    setCurrentPage: setCandPage,
+    pageSize: candPageSize,
+    setPageSize: setCandPageSize,
+    paginatedItems: paginatedCandidates,
+  } = usePagination(sortedCandidates, 10);
+
+  const {
+    currentPage: histPage,
+    setCurrentPage: setHistPage,
+    pageSize: histPageSize,
+    setPageSize: setHistPageSize,
+    paginatedItems: paginatedHistory,
+  } = usePagination(sortedHistory, 10);
 
   const handleSelectAll = () => {
     if (selectedStudentIds.length === candidateStudents.length) {
@@ -522,11 +539,12 @@ export const StudentProgressionManager: React.FC<StudentProgressionManagerProps>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {sortedCandidates.map((stu, index) => {
+                  {paginatedCandidates.map((stu, index) => {
                     const isSelected = selectedStudentIds.includes(stu.id);
                     const { nextGrade, status } = computeNextGrade(stu.gradeOrSemester);
                     const baseFee = stu.branchId === 'branch-sch-01' ? schoolBaseFee : collegeBaseFee;
                     const newTotal = status === 'GRADUATED' ? stu.feePending : baseFee + stu.feePending;
+                    const globalIndex = (candPage - 1) * candPageSize + index + 1;
 
                     return (
                       <tr
@@ -543,7 +561,7 @@ export const StudentProgressionManager: React.FC<StudentProgressionManagerProps>
                             className="rounded text-orange-600 focus:ring-orange-500 w-4 h-4"
                           />
                         </td>
-                        <td className="py-3.5 px-2 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                        <td className="py-3.5 px-2 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
                         <td className="py-3.5 px-4">
                           <div className="font-bold text-slate-900">{stu.name}</div>
                           <div className="text-[11px] text-slate-400">
@@ -615,6 +633,17 @@ export const StudentProgressionManager: React.FC<StudentProgressionManagerProps>
                 </tbody>
               </table>
             </div>
+
+            {/* Candidate Table Pagination Controls */}
+            <TablePagination
+              currentPage={candPage}
+              totalItems={sortedCandidates.length}
+              pageSize={candPageSize}
+              pageSizeOptions={[5, 10, 25, 50, 100]}
+              onPageChange={setCandPage}
+              onPageSizeChange={setCandPageSize}
+              itemName="candidates"
+            />
           </div>
         </>
       )}
@@ -644,7 +673,8 @@ export const StudentProgressionManager: React.FC<StudentProgressionManagerProps>
               </p>
             </div>
           ) : (
-            <div className="erp-table-scroll">
+            <>
+              <div className="erp-table-scroll">
               <table className="w-full text-left text-xs text-slate-700">
                 <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px] shadow-2xs">
                   <tr>
@@ -659,53 +689,68 @@ export const StudentProgressionManager: React.FC<StudentProgressionManagerProps>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {sortedHistory.map((rec, index) => (
-                    <tr key={rec.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3.5 px-4 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900">{rec.studentName}</div>
-                        <div className="text-[11px] text-slate-400">{rec.admissionNo || rec.studentId}</div>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600">
-                        {rec.branchName || 'Zep Foundation Bhose'}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-800">
-                        {rec.fromYear} &rarr; {rec.toYear}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-semibold text-slate-600">{rec.fromGrade}</span>
-                        <span className="mx-1.5 text-slate-400">&rarr;</span>
-                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                          {rec.toGrade}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {rec.pendingFeeCarriedForward > 0 ? (
-                          <span className="font-extrabold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                            ₹ {rec.pendingFeeCarriedForward.toLocaleString()}
+                  {paginatedHistory.map((rec, index) => {
+                    const globalIndex = (histPage - 1) * histPageSize + index + 1;
+                    return (
+                      <tr key={rec.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3.5 px-4 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900">{rec.studentName}</div>
+                          <div className="text-[11px] text-slate-400">{rec.admissionNo || rec.studentId}</div>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600">
+                          {rec.branchName || 'Zep Foundation Bhose'}
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-800">
+                          {rec.fromYear} &rarr; {rec.toYear}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-semibold text-slate-600">{rec.fromGrade}</span>
+                          <span className="mx-1.5 text-slate-400">&rarr;</span>
+                          <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                            {rec.toGrade}
                           </span>
-                        ) : (
-                          <span className="text-emerald-600 font-semibold">₹ 0</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-500">{rec.promotedDate}</td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            rec.status === 'PROMOTED'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-purple-100 text-purple-800'
-                          }`}
-                        >
-                          {rec.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {rec.pendingFeeCarriedForward > 0 ? (
+                            <span className="font-extrabold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                              ₹ {rec.pendingFeeCarriedForward.toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-emerald-600 font-semibold">₹ 0</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-500">{rec.promotedDate}</td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              rec.status === 'PROMOTED'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-purple-100 text-purple-800'
+                            }`}
+                          >
+                            {rec.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          )}
+
+            {/* History Table Pagination Controls */}
+            <TablePagination
+              currentPage={histPage}
+              totalItems={sortedHistory.length}
+              pageSize={histPageSize}
+              pageSizeOptions={[5, 10, 25, 50, 100]}
+              onPageChange={setHistPage}
+              onPageSizeChange={setHistPageSize}
+              itemName="history records"
+            />
+          </>
+        )}
         </div>
       )}
     </div>

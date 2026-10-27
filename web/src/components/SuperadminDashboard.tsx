@@ -15,10 +15,16 @@ import {
   ChevronRight,
   Shield,
   Layers,
+  Sparkles,
+  Smartphone,
+  FileQuestion,
+  Phone,
+  MessageCircle,
 } from 'lucide-react';
 import { Student, FeeReceipt, AdmissionEnquiry } from '../types';
 import { DashboardTab } from './Sidebar';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
 
 interface SuperadminDashboardProps {
   students: Student[];
@@ -67,8 +73,7 @@ export const SuperadminDashboard: React.FC<SuperadminDashboardProps> = ({
       if (selectedBranch === 'SCHOOL') return rcp.branchName.toLowerCase().includes('school');
       if (selectedBranch === 'COLLEGE') return rcp.branchName.toLowerCase().includes('hotel') || rcp.branchName.toLowerCase().includes('imperial');
       return true;
-    })
-    .slice(0, 3);
+    });
 
   const {
     sortedData: sortedRecentReceipts,
@@ -80,14 +85,27 @@ export const SuperadminDashboard: React.FC<SuperadminDashboardProps> = ({
     defaultDirection: 'desc',
   });
 
+  const {
+    currentPage: dashboardPage,
+    setCurrentPage: setDashboardPage,
+    pageSize: dashboardPageSize,
+    setPageSize: setDashboardPageSize,
+    paginatedItems: paginatedRecentReceipts,
+  } = usePagination(sortedRecentReceipts, 5);
+
   const isSchoolScope = selectedBranch === 'SCHOOL';
   const isCollegeScope = selectedBranch === 'COLLEGE';
   const isAllScope = selectedBranch === 'ALL';
 
+  const newEnquiriesCount = enquiries.filter((e) => e.status === 'NEW').length;
+  const contactedEnquiriesCount = enquiries.filter((e) => e.status === 'CONTACTED').length;
+  const admittedEnquiriesCount = enquiries.filter((e) => e.status === 'ADMITTED').length;
+  const recentEnquiries = enquiries.slice(0, 5);
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* 1. Executive Banner */}
-      <div className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 rounded-3xl p-6 sm:p-7 text-white shadow-lg shadow-orange-600/15 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      {/* <div className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 rounded-3xl p-6 sm:p-7 text-white shadow-lg shadow-orange-600/15 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] uppercase font-black tracking-wider bg-white/20 px-3 py-1 rounded-full text-orange-100 border border-white/30">
@@ -146,7 +164,7 @@ export const SuperadminDashboard: React.FC<SuperadminDashboardProps> = ({
             </>
           )}
         </div>
-      </div>
+      </div> */}
 
       {/* 2. Primary Financial & Student KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -462,10 +480,199 @@ export const SuperadminDashboard: React.FC<SuperadminDashboardProps> = ({
               </div>
             </button>
           )}
+
+          {/* Module 7: Event Circulars & Mobile Photos */}
+          <button
+            onClick={() => onNavigateTab?.('COMMUNICATION')}
+            className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm hover:border-orange-500 hover:shadow-md transition-all text-left flex flex-col justify-between group"
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-xs">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-bold text-xs text-slate-900 group-hover:text-orange-600">Events & Circulars</div>
+              <div className="text-[10px] text-orange-600 font-bold mt-0.5">PTM & Mobile Live</div>
+            </div>
+          </button>
+
+          {/* Module 8: Centralized Reports & Auditing Center */}
+          <button
+            onClick={() => onNavigateTab?.('REPORTS')}
+            className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm hover:border-orange-500 hover:shadow-md transition-all text-left flex flex-col justify-between group"
+          >
+            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-bold text-xs text-slate-900 group-hover:text-orange-600">Reports & Audit</div>
+              <div className="text-[10px] text-purple-600 font-bold mt-0.5">1-Click Export Center</div>
+            </div>
+          </button>
         </div>
       </div>
 
-      {/* 5. Clean, Compact Recent Fee Activity Highlight */}
+      {/* 5. Live Admission Inquiries & Website Leads Snapshot */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-orange-200/90 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+              <FileQuestion className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-extrabold text-slate-900 text-base">
+                  Live Admission Inquiries (Web Leads)
+                </h3>
+                <span className="text-[10px] font-black uppercase tracking-wider bg-orange-100 text-orange-700 px-2.5 py-0.5 rounded-full border border-orange-200">
+                  Public Website Inflow
+                </span>
+                {newEnquiriesCount > 0 && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-500 text-white animate-pulse">
+                    {newEnquiriesCount} New Leads
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Prospective admissions submitted from the public inquiry page & portal in real-time.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onNavigateTab?.('ENQUIRIES')}
+              className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 bg-orange-50 hover:bg-orange-100 px-3.5 py-2 rounded-xl border border-orange-200 transition-colors shadow-2xs"
+            >
+              Open Full Inquiries Module <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Metrics Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 text-xs">
+          <div className="bg-white p-2.5 rounded-xl border border-slate-200/60">
+            <span className="text-[10px] text-slate-400 font-bold uppercase">Total Logged</span>
+            <div className="text-xl font-black text-slate-900 mt-0.5">{enquiries.length}</div>
+          </div>
+          <div className="bg-white p-2.5 rounded-xl border border-rose-100">
+            <span className="text-[10px] text-rose-500 font-bold uppercase">Pending Callback</span>
+            <div className="text-xl font-black text-rose-600 mt-0.5">{newEnquiriesCount}</div>
+          </div>
+          <div className="bg-white p-2.5 rounded-xl border border-amber-100">
+            <span className="text-[10px] text-amber-500 font-bold uppercase">Contacted</span>
+            <div className="text-xl font-black text-amber-600 mt-0.5">{contactedEnquiriesCount}</div>
+          </div>
+          <div className="bg-white p-2.5 rounded-xl border border-emerald-100">
+            <span className="text-[10px] text-emerald-500 font-bold uppercase">Enrolled</span>
+            <div className="text-xl font-black text-emerald-600 mt-0.5">{admittedEnquiriesCount}</div>
+          </div>
+        </div>
+
+        {/* Recent Inquiries Table */}
+        <div className="erp-table-scroll">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
+              <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-[10px]">
+                <th className="py-2.5 px-3">Inquiry ID</th>
+                <th className="py-2.5 px-3">Student Name</th>
+                <th className="py-2.5 px-3">Campus</th>
+                <th className="py-2.5 px-3">Target Program</th>
+                <th className="py-2.5 px-3">Parent & Contact</th>
+                <th className="py-2.5 px-3">Submitted</th>
+                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3 text-right">Quick Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {recentEnquiries.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-6 text-center text-slate-400">
+                    No admission inquiries recorded yet.
+                  </td>
+                </tr>
+              ) : (
+                recentEnquiries.map((enq) => {
+                  const isSchool = enq.targetBranch === 'SCHOOL';
+                  const cleanPhone = enq.phone.replace(/[^0-9]/g, '').slice(-10);
+
+                  return (
+                    <tr key={enq.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-700 text-[11px]">
+                        {enq.id}
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                        {enq.applicantName}
+                        {enq.city && <span className="block text-[10px] text-slate-400 font-normal">{enq.city}</span>}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isSchool
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {isSchool ? 'School' : 'Hotel Mgmt'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-700 text-xs">
+                        {enq.targetClassOrCourse}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="font-semibold text-slate-800 text-xs">{enq.parentName}</div>
+                        <a
+                          href={`tel:${enq.phone}`}
+                          className="text-orange-600 font-bold hover:underline flex items-center gap-1 text-[11px]"
+                        >
+                          <Phone className="w-3 h-3" />
+                          {enq.phone}
+                        </a>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
+                        {enq.createdAt}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            enq.status === 'NEW'
+                              ? 'bg-rose-100 text-rose-700'
+                              : enq.status === 'CONTACTED'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {enq.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          <a
+                            href={`https://wa.me/91${cleanPhone}?text=Hello%20${encodeURIComponent(enq.parentName)},%20this%20is%20the%20Admissions%20Office%20of%20Zep%20Foundation%20Bhose%20regarding%20the%20admission%20inquiry%20(Ref:%20${enq.id})%20for%20${encodeURIComponent(enq.applicantName)}.`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                            title="Chat on WhatsApp"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                          </a>
+                          <button
+                            onClick={() => onNavigateTab?.('ENQUIRIES')}
+                            className="text-[11px] font-bold text-orange-600 hover:text-orange-800 px-2 py-1 rounded-lg hover:bg-orange-50"
+                          >
+                            View &rarr;
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 6. Clean, Compact Recent Fee Activity Highlight */}
       <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -497,37 +704,51 @@ export const SuperadminDashboard: React.FC<SuperadminDashboardProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sortedRecentReceipts.map((rcp, index) => (
-                <tr key={rcp.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-2.5 px-3 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
-                  <td className="py-2.5 px-3 font-mono font-bold text-slate-700">{rcp.receiptNo}</td>
-                  <td className="py-2.5 px-3 font-semibold text-slate-900">{rcp.studentName}</td>
-                  <td className="py-2.5 px-3 text-slate-600">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        rcp.branchName.toLowerCase().includes('school')
-                          ? 'bg-orange-100 text-orange-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {rcp.branchName.toLowerCase().includes('school') ? 'School' : 'Hotel Mgmt'}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 font-bold text-emerald-600">
-                    ₹ {rcp.amount.toLocaleString()}
-                  </td>
-                  <td className="py-2.5 px-3 font-semibold text-slate-700">{rcp.paymentMode}</td>
-                  <td className="py-2.5 px-3">
-                    <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-[11px]">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      {rcp.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {paginatedRecentReceipts.map((rcp, index) => {
+                const globalIndex = (dashboardPage - 1) * dashboardPageSize + index + 1;
+                return (
+                  <tr key={rcp.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-2.5 px-3 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
+                    <td className="py-2.5 px-3 font-mono font-bold text-slate-700">{rcp.receiptNo}</td>
+                    <td className="py-2.5 px-3 font-semibold text-slate-900">{rcp.studentName}</td>
+                    <td className="py-2.5 px-3 text-slate-600">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          rcp.branchName.toLowerCase().includes('school')
+                            ? 'bg-orange-100 text-orange-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {rcp.branchName.toLowerCase().includes('school') ? 'School' : 'Hotel Mgmt'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 font-bold text-emerald-600">
+                      ₹ {rcp.amount.toLocaleString()}
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold text-slate-700">{rcp.paymentMode}</td>
+                    <td className="py-2.5 px-3">
+                      <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-[11px]">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        {rcp.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {/* Live Receipts Stream Pagination Controls */}
+        <TablePagination
+          currentPage={dashboardPage}
+          totalItems={sortedRecentReceipts.length}
+          pageSize={dashboardPageSize}
+          pageSizeOptions={[3, 5, 10, 20]}
+          onPageChange={setDashboardPage}
+          onPageSizeChange={setDashboardPageSize}
+          itemName="recent receipts"
+        />
       </div>
     </div>
   );

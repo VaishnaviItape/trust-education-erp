@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { envConfig } from '../config/env';
 import { UserProfile, UserRole } from '../types';
+import { TrustLogo } from './TrustLogo';
 
 export type { UserProfile, UserRole };
 
@@ -298,8 +299,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           
           {/* Brand Header */}
           <div className="text-center space-y-1">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white shadow-md shadow-orange-500/20 mb-1">
-              <Building2 className="w-5 h-5" />
+            <div className="inline-flex items-center justify-center mb-1">
+              <TrustLogo variant="crest" size="lg" showSubtitle={false} />
             </div>
             <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
               {activeMode === 'SIGN_IN' ? 'Sign in to Zep Foundation ERP' : 'Create an Account'}

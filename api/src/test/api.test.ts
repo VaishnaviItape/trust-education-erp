@@ -116,6 +116,58 @@ test('POST /api/enquiries handles missing optional body fields with defaults', a
   assert.strictEqual(data.enquiry.applicantName, 'Prospective Student');
 });
 
+test('PATCH /api/enquiries/:id updates enquiry status and counselor notes', async () => {
+  // First create a new enquiry
+  const createRes = await fetch(`${baseUrl}/api/enquiries`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      applicantName: 'Test Student For Update',
+      phone: '+91 91111 22222',
+      targetBranch: 'SCHOOL',
+      targetClassOrCourse: 'STD 9 CBSE',
+    }),
+  });
+  assert.strictEqual(createRes.status, 201);
+  const created = await createRes.json();
+  const enquiryId = created.enquiry.id;
+
+  // Update status and counselor notes
+  const patchRes = await fetch(`${baseUrl}/api/enquiries/${enquiryId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      status: 'CONTACTED',
+      counselorNotes: 'Parent requested callback on Sunday 10am',
+    }),
+  });
+  assert.strictEqual(patchRes.status, 200);
+  const patched = await patchRes.json();
+  assert.strictEqual(patched.enquiry.status, 'CONTACTED');
+  assert.strictEqual(patched.enquiry.counselorNotes, 'Parent requested callback on Sunday 10am');
+});
+
+test('DELETE /api/enquiries/:id removes enquiry from system', async () => {
+  const createRes = await fetch(`${baseUrl}/api/enquiries`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ applicantName: 'To Be Deleted' }),
+  });
+  const created = await createRes.json();
+  const idToDelete = created.enquiry.id;
+
+  const deleteRes = await fetch(`${baseUrl}/api/enquiries/${idToDelete}`, {
+    method: 'DELETE',
+  });
+  assert.strictEqual(deleteRes.status, 200);
+  const delData = await deleteRes.json();
+  assert.strictEqual(delData.deletedId, idToDelete);
+
+  // Subsequent GET should return 404
+  const getRes = await fetch(`${baseUrl}/api/enquiries/${idToDelete}`);
+  assert.strictEqual(getRes.status, 404);
+});
+
 test('GET /api/bus/tracking returns bus route details', async () => {
   const res = await fetch(`${baseUrl}/api/bus/tracking`);
   assert.strictEqual(res.status, 200);
@@ -605,6 +657,108 @@ test('POST & GET /api/teacher/marks records and retrieves student grades', async
   assert.strictEqual(resGet.status, 200);
   const dataGet = await resGet.json();
   assert.ok(dataGet.total >= 2);
+});
+
+test('POST /api/teacher/marks/batch persists batch marksheet entries and supports filtering & deletion', async () => {
+  const batchPayload = {
+    examOrPracticalName: 'Term-End Examination (October 2026)',
+    subject: 'Mathematics & Geometry',
+    classOrGrade: 'Class 10-A',
+    entries: [
+      {
+        studentId: 'stu-s01',
+        rollNo: '101',
+        maxMarks: 100,
+        marksObtained: 95,
+        remarks: 'Outstanding analytical skills',
+      },
+      {
+        studentId: 'stu-s02',
+        rollNo: '102',
+        maxMarks: 100,
+        marksObtained: 78,
+        remarks: 'Good progress in trigonometry',
+      },
+      {
+        studentId: 'stu-s03',
+        rollNo: '103',
+        maxMarks: 100,
+        marksObtained: 32,
+        remarks: 'Needs remedial practice in algebra',
+      },
+    ],
+  };
+
+  const resBatch = await fetch(`${baseUrl}/api/teacher/marks/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(batchPayload),
+  });
+  assert.strictEqual(resBatch.status, 201);
+  const batchRes = await resBatch.json();
+  assert.strictEqual(batchRes.savedCount, 3);
+  assert.strictEqual(batchRes.grades[0].grade, 'A+');
+  assert.strictEqual(batchRes.grades[0].status, 'PASS');
+  assert.strictEqual(batchRes.grades[2].status, 'FAIL');
+
+  // Verify filtering by exam & subject
+  const resFilter = await fetch(
+    `${baseUrl}/api/teacher/marks?examOrPracticalName=${encodeURIComponent(
+      'Term-End Examination (October 2026)'
+    )}&subject=${encodeURIComponent('Mathematics & Geometry')}`
+  );
+  assert.strictEqual(resFilter.status, 200);
+  const filterData = await resFilter.json();
+  assert.strictEqual(filterData.total, 3);
+  assert.strictEqual(filterData.grades[0].subject, 'Mathematics & Geometry');
+
+  // Test updating marks in-place for same student/exam/subject (reusability)
+  const updatePayload = {
+    examOrPracticalName: 'Term-End Examination (October 2026)',
+    subject: 'Mathematics & Geometry',
+    classOrGrade: 'Class 10-A',
+    entries: [
+      {
+        studentId: 'stu-s03',
+        rollNo: '103',
+        maxMarks: 100,
+        marksObtained: 55, // Retest / re-eval passed
+        remarks: 'Passed retest successfully',
+      },
+    ],
+  };
+  const resUpdate = await fetch(`${baseUrl}/api/teacher/marks/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updatePayload),
+  });
+  assert.strictEqual(resUpdate.status, 201);
+
+  // Check updated record
+  const resVerify = await fetch(
+    `${baseUrl}/api/teacher/marks?studentId=stu-s03&subject=${encodeURIComponent(
+      'Mathematics & Geometry'
+    )}`
+  );
+  const verifyData = await resVerify.json();
+  assert.strictEqual(verifyData.grades[0].marksObtained, 55);
+  assert.strictEqual(verifyData.grades[0].status, 'PASS');
+  assert.strictEqual(verifyData.grades[0].grade, 'C');
+
+  // Test single record DELETE
+  const gradeId = verifyData.grades[0].id;
+  const resDel = await fetch(`${baseUrl}/api/teacher/marks/${gradeId}`, {
+    method: 'DELETE',
+  });
+  assert.strictEqual(resDel.status, 200);
+
+  // Test bad batch request validation
+  const badRes = await fetch(`${baseUrl}/api/teacher/marks/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entries: 'not-an-array' }),
+  });
+  assert.strictEqual(badRes.status, 400);
 });
 
 // ============================================================================
@@ -1227,5 +1381,450 @@ test('GET /api/students/progression-history retrieves progression timeline', asy
   const resQuery = await fetch(`${baseUrl}/api/students/progression-history?studentId=stu-hm01`);
   assert.strictEqual(resQuery.status, 200);
 });
+
+test('Exam Seating Arrangement Endpoints: GET, POST, PUT, DELETE & Auto-Allocate', async () => {
+  // 1. GET seating matrix summary
+  const resMatrix = await fetch(`${baseUrl}/api/enterprise/exams/seating-matrix`);
+  assert.strictEqual(resMatrix.status, 200);
+  const dataMatrix = await resMatrix.json();
+  assert.ok(dataMatrix.rooms.length >= 3);
+  assert.ok(dataMatrix.totalAllocated > 0);
+
+  // 2. GET seating list with filters
+  const resList = await fetch(`${baseUrl}/api/enterprise/exams/seating?examName=Term-End%20Examination%20(October%202026)`);
+  assert.strictEqual(resList.status, 200);
+  const dataList = await resList.json();
+  assert.ok(dataList.total > 0);
+  assert.strictEqual(dataList.allocations[0].srNo, 1);
+  assert.ok(dataList.allocations[0].rollNo);
+  assert.ok(dataList.allocations[0].studentName);
+
+  // 3. POST new seating allocation
+  const newSeatPayload = {
+    examName: 'Midterm Science Assessment 2026',
+    subject: 'Organic Chemistry & Thermodynamics',
+    subjectCode: 'CHEM-202',
+    examDate: '2026-11-05',
+    examTime: '10:00 AM - 01:00 PM',
+    roomNo: 'Room 201 - Science Block',
+    blockNo: 'Block 1',
+    invigilatorName: 'Dr. Deshpande',
+    rollNo: 'TEST-ROLL-99',
+    studentName: 'Test Candidate Student',
+    hallTicketNo: 'HT-TEST-999',
+    benchNo: 'Bench 99-A',
+    classOrGrade: 'Class 10-A',
+  };
+  const resPost = await fetch(`${baseUrl}/api/enterprise/exams/seating`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newSeatPayload),
+  });
+  assert.strictEqual(resPost.status, 201);
+  const dataPost = await resPost.json();
+  assert.strictEqual(dataPost.allocation.rollNo, 'TEST-ROLL-99');
+  assert.strictEqual(dataPost.allocation.studentName, 'Test Candidate Student');
+  const createdId = dataPost.allocation.id;
+
+  // 4. PUT update seating allocation
+  const resPut = await fetch(`${baseUrl}/api/enterprise/exams/seating/${createdId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ attendanceStatus: 'PRESENT', benchNo: 'Bench 99-B (Updated)' }),
+  });
+  assert.strictEqual(resPut.status, 200);
+  const dataPut = await resPut.json();
+  assert.strictEqual(dataPut.allocation.attendanceStatus, 'PRESENT');
+  assert.strictEqual(dataPut.allocation.benchNo, 'Bench 99-B (Updated)');
+
+  // 5. POST auto-allocate anti-cheating matrix
+  const resAuto = await fetch(`${baseUrl}/api/enterprise/exams/seating/auto-allocate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      examName: 'Interleaved Board Mock Exam 2026',
+      roomNo: 'Hall 104 - Junior Wing',
+      class1: 'Standard 10-A',
+      class2: 'B.Sc HM Semester 3',
+      count: 4,
+    }),
+  });
+  assert.strictEqual(resAuto.status, 201);
+  const dataAuto = await resAuto.json();
+  assert.strictEqual(dataAuto.allocations.length, 4);
+  assert.strictEqual(dataAuto.allocations[0].srNo, 1);
+  assert.strictEqual(dataAuto.allocations[1].srNo, 2);
+
+  // 6. DELETE created seating allocation
+  const resDel = await fetch(`${baseUrl}/api/enterprise/exams/seating/${createdId}`, {
+    method: 'DELETE',
+  });
+  assert.strictEqual(resDel.status, 200);
+
+  // 7. Error validation for POST without studentName
+  const resErr = await fetch(`${baseUrl}/api/enterprise/exams/seating`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ examName: 'Incomplete Exam' }),
+  });
+  assert.strictEqual(resErr.status, 400);
+});
+
+test('Certificates & LC Details: Generate, Update Progress & Conduct, and Verify Endpoint', async () => {
+  // 1. Generate LC with Progress and Conduct
+  const genRes = await fetch(`${baseUrl}/api/enterprise/certificates/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      studentId: 'stu-s01',
+      studentName: 'Aarav Sharma',
+      certificateType: 'TRANSFER_LEAVING',
+      progress: 'Outstanding',
+      conduct: 'Exemplary',
+      reasonForLeaving: 'Higher Studies Transfer',
+      leavingDate: '2026-06-15',
+    }),
+  });
+  assert.strictEqual(genRes.status, 201);
+  const genData = await genRes.json();
+  assert.strictEqual(genData.certificate.progress, 'Outstanding');
+  assert.strictEqual(genData.certificate.conduct, 'Exemplary');
+  const certId = genData.certificate.id;
+
+  // 2. PATCH certificate progress and conduct
+  const patchRes = await fetch(`${baseUrl}/api/enterprise/certificates/${certId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      progress: 'Excellent',
+      conduct: 'Very Good',
+      remarks: 'Special Distinction Awardee',
+    }),
+  });
+  assert.strictEqual(patchRes.status, 200);
+  const patchData = await patchRes.json();
+  assert.strictEqual(patchData.certificate.progress, 'Excellent');
+  assert.strictEqual(patchData.certificate.conduct, 'Very Good');
+
+  // 3. GET /verify/doc/:id checks public HTML includes Progress and Conduct
+  const verifyRes = await fetch(`${baseUrl}/verify/doc/${certId}`);
+  assert.strictEqual(verifyRes.status, 200);
+  const verifyHtml = await verifyRes.text();
+  assert.ok(verifyHtml.includes('Progress in Studies:'));
+  assert.ok(verifyHtml.includes('Excellent'));
+  assert.ok(verifyHtml.includes('Conduct &amp; Moral Character:') || verifyHtml.includes('Conduct & Moral Character:'));
+  assert.ok(verifyHtml.includes('Very Good'));
+
+  // 4. DELETE certificate
+  const delRes = await fetch(`${baseUrl}/api/enterprise/certificates/${certId}`, {
+    method: 'DELETE',
+  });
+  assert.strictEqual(delRes.status, 200);
+});
+
+test('Classroom & Class Teacher Allocation Endpoints: GET, POST, PUT, DELETE with Conflict Detection & Filtering', async () => {
+  // 1. GET all classroom allocations and verify initial counts
+  const resGet = await fetch(`${baseUrl}/api/enterprise/classrooms/allocations`);
+  assert.strictEqual(resGet.status, 200);
+  const dataGet = await resGet.json();
+  assert.ok(dataGet.total >= 6);
+  assert.ok(dataGet.summary.assignedCount >= 4);
+  assert.ok(dataGet.summary.vacantCount >= 1);
+  assert.ok(dataGet.summary.totalStudents > 0);
+
+  // 2. Filter by branchScope
+  const resSchool = await fetch(`${baseUrl}/api/enterprise/classrooms/allocations?branchScope=SCHOOL`);
+  assert.strictEqual(resSchool.status, 200);
+  const schoolData = await resSchool.json();
+  assert.ok(schoolData.allocations.every((a: any) => a.branchScope === 'SCHOOL'));
+
+  // 3. Search filter by teacher name
+  const resSearch = await fetch(`${baseUrl}/api/enterprise/classrooms/allocations?search=Rajendra`);
+  assert.strictEqual(resSearch.status, 200);
+  const searchData = await resSearch.json();
+  assert.strictEqual(searchData.total, 1);
+  assert.strictEqual(searchData.allocations[0].teacherName, 'Rajendra Patil');
+
+  // 4. POST assign a new class teacher to a classroom
+  const payload = {
+    classroomId: 'rm-sch-301',
+    classroomName: 'Room 301 (Senior Secondary Block)',
+    roomCode: 'SCH-301',
+    wing: 'South Wing',
+    floor: '3rd Floor',
+    capacity: 50,
+    classOrGrade: 'Class 12-A',
+    division: 'A',
+    enrolledStudentsCount: 44,
+    teacherId: 'tch-sch-02', // Already assigned to Class 7-A
+    teacherName: 'Rajendra Patil',
+    teacherDesignation: 'Trained Graduate Teacher (TGT Secondary)',
+    specializationSubject: 'History & Political Science',
+    branchScope: 'SCHOOL',
+    academicYear: '2026-2027',
+  };
+
+  const resPost = await fetch(`${baseUrl}/api/enterprise/classrooms/allocations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  assert.strictEqual(resPost.status, 201);
+  const dataPost = await resPost.json();
+  assert.ok(dataPost.allocation.id);
+  assert.strictEqual(dataPost.allocation.classOrGrade, 'Class 12-A');
+  assert.strictEqual(dataPost.allocation.status, 'ACTIVE');
+  // Conflict warning should trigger because Rajendra Patil was already in Room 101
+  assert.ok(dataPost.conflictWarning);
+  const createdId = dataPost.allocation.id;
+
+  // 5. PUT update allocation (reassign teacher)
+  const resPut = await fetch(`${baseUrl}/api/enterprise/classrooms/allocations/${createdId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      teacherId: 'tch-sch-05',
+      teacherName: 'Vikram Shinde',
+      specializationSubject: 'Physical Education & Athletics',
+      remarks: 'Reassigned as class mentor for final academic quarter.',
+    }),
+  });
+  assert.strictEqual(resPut.status, 200);
+  const dataPut = await resPut.json();
+  assert.strictEqual(dataPut.allocation.teacherName, 'Vikram Shinde');
+
+  // 6. DELETE allocation
+  const resDel = await fetch(`${baseUrl}/api/enterprise/classrooms/allocations/${createdId}`, {
+    method: 'DELETE',
+  });
+  assert.strictEqual(resDel.status, 200);
+
+  // 7. Validation error for missing mandatory fields
+  const resErr = await fetch(`${baseUrl}/api/enterprise/classrooms/allocations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ remarks: 'Empty payload' }),
+  });
+  assert.strictEqual(resErr.status, 400);
+});
+
+test('Multi-Lingual Question Bank & Question Paper Endpoints: Mathematics, Marathi, Hindi, & English', async () => {
+  // 1. GET question bank & verify multi-language coverage
+  const resGet = await fetch(`${baseUrl}/api/enterprise/question-bank`);
+  assert.strictEqual(resGet.status, 200);
+  const dataGet = await resGet.json();
+  assert.ok(dataGet.total >= 10);
+  assert.ok(dataGet.summary.countsByLanguage.MARATHI >= 4);
+  assert.ok(dataGet.summary.countsByLanguage.HINDI >= 4);
+  assert.ok(dataGet.summary.countsByType.NUMERICAL_MATH >= 3);
+
+  // 2. Filter by Marathi language
+  const resMar = await fetch(`${baseUrl}/api/enterprise/question-bank?language=MARATHI`);
+  assert.strictEqual(resMar.status, 200);
+  const marData = await resMar.json();
+  assert.ok(marData.questions.every((q: any) => q.language === 'MARATHI'));
+  assert.ok(marData.questions.some((q: any) => q.questionText.includes('प्रयोग') || q.questionText.includes('म्हणी')));
+
+  // 3. Filter by Hindi language
+  const resHin = await fetch(`${baseUrl}/api/enterprise/question-bank?language=HINDI`);
+  assert.strictEqual(resHin.status, 200);
+  const hinData = await resHin.json();
+  assert.ok(hinData.questions.every((q: any) => q.language === 'HINDI'));
+  assert.ok(hinData.questions.some((q: any) => q.questionText.includes('संधि') || q.questionText.includes('कबीर')));
+
+  // 4. POST add a new Mathematics question with quadratic formula
+  const newQPayload = {
+    subject: 'Mathematics & Analytical Geometry',
+    subjectCode: 'MATH-10',
+    gradeOrClass: 'Class 10-A',
+    branchScope: 'SCHOOL',
+    chapterTopic: 'Arithmetic Progression (अंकगणिती श्रेढी)',
+    language: 'BILINGUAL_EN_MR',
+    questionType: 'NUMERICAL_MATH',
+    marks: 4,
+    difficulty: 'MEDIUM',
+    questionText: 'Find the 20th term (t₂₀) and sum of first 20 terms (S₂₀) for the Arithmetic Progression: 3, 7, 11, 15... using formulae: t_n = a + (n - 1)d and S_n = (n/2)[2a + (n - 1)d].',
+    formulaUsed: 't_n = a + (n - 1)d, S_n = (n/2)[2a + (n - 1)d]',
+    correctAnswer: 't₂₀ = 79, S₂₀ = 820',
+    tags: ['ArithmeticProgression', 'Formulas', 'Class10'],
+  };
+
+  const resPostQ = await fetch(`${baseUrl}/api/enterprise/question-bank`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newQPayload),
+  });
+  assert.strictEqual(resPostQ.status, 201);
+  const postQData = await resPostQ.json();
+  assert.ok(postQData.question.id);
+  assert.strictEqual(postQData.question.marks, 4);
+  const createdQId = postQData.question.id;
+
+  // 5. GET question papers list
+  const resPapers = await fetch(`${baseUrl}/api/enterprise/question-papers`);
+  assert.strictEqual(resPapers.status, 200);
+  const papersData = await resPapers.json();
+  assert.ok(papersData.total >= 4);
+
+  // 6. POST generate an assembled question paper
+  const paperPayload = {
+    title: 'Unit Test 2026 - Mathematics & Marathi Grammar',
+    paperCode: 'QP-TEST-2026',
+    subject: 'Mathematics & Analytical Geometry',
+    gradeOrClass: 'Class 10-A',
+    language: 'BILINGUAL',
+    maxMarks: 50,
+    timeAllowedMinutes: 90,
+    questionIds: [createdQId, 'qb-math-01', 'qb-mar-01'],
+    generalInstructions: [
+      'All questions are compulsory.',
+      'उजवीकडील अंक पूर्ण गुण दर्शवितात.',
+    ],
+  };
+
+  const resPostPaper = await fetch(`${baseUrl}/api/enterprise/question-papers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(paperPayload),
+  });
+  assert.strictEqual(resPostPaper.status, 201);
+  const createdPaper = await resPostPaper.json();
+  assert.ok(createdPaper.questionPaper.id);
+  assert.strictEqual(createdPaper.questionPaper.maxMarks, 50);
+  const paperId = createdPaper.questionPaper.id;
+
+  // 7. GET single question paper by ID
+  const resSinglePaper = await fetch(`${baseUrl}/api/enterprise/question-papers/${paperId}`);
+  assert.strictEqual(resSinglePaper.status, 200);
+  const singlePaperData = await resSinglePaper.json();
+  assert.strictEqual(singlePaperData.questionPaper.title, 'Unit Test 2026 - Mathematics & Marathi Grammar');
+
+  // 8. DELETE created question and question paper
+  const resDelPaper = await fetch(`${baseUrl}/api/enterprise/question-papers/${paperId}`, {
+    method: 'DELETE',
+  });
+  assert.strictEqual(resDelPaper.status, 200);
+
+  const resDelQ = await fetch(`${baseUrl}/api/enterprise/question-bank/${createdQId}`, {
+    method: 'DELETE',
+  });
+  assert.strictEqual(resDelQ.status, 200);
+});
+
+test('Parent-Teacher Meeting (PTM) & Notification Dispatch Endpoints: GET, POST, RSVP, Notify, Attendance & PUT', async () => {
+  // 1. GET /api/enterprise/parent-meetings
+  const resList = await fetch(`${baseUrl}/api/enterprise/parent-meetings`);
+  assert.strictEqual(resList.status, 200);
+  const dataList = await resList.json();
+  assert.ok(dataList.total >= 2);
+  assert.ok(dataList.metrics);
+  assert.ok(dataList.metrics.totalMeetings >= 2);
+
+  // 2. Filter by branchScope and targetClass
+  const resFiltered = await fetch(`${baseUrl}/api/enterprise/parent-meetings?branchScope=SCHOOL&targetClass=Class%2010-A`);
+  assert.strictEqual(resFiltered.status, 200);
+  const dataFiltered = await resFiltered.json();
+  assert.ok(dataFiltered.meetings.length >= 1);
+  assert.strictEqual(dataFiltered.meetings[0].branchScope, 'SCHOOL');
+
+  // 3. GET single meeting by ID
+  const resSingle = await fetch(`${baseUrl}/api/enterprise/parent-meetings/ptm-sch-01`);
+  assert.strictEqual(resSingle.status, 200);
+  const dataSingle = await resSingle.json();
+  assert.strictEqual(dataSingle.meeting.id, 'ptm-sch-01');
+  assert.ok(dataSingle.meeting.agenda.length > 0);
+  assert.ok(dataSingle.meeting.notificationDispatch.dispatched);
+
+  // 4. POST /api/enterprise/parent-meetings (Schedule new meeting)
+  const newMeetingPayload = {
+    title: 'Semester 2 Culinary Arts Progress & Hospitality Career Consultation',
+    branchScope: 'COLLEGE',
+    meetingType: 'ACADEMIC_REVIEW',
+    targetAudienceType: 'SPECIFIC_CLASSES',
+    targetClasses: ['B.Sc in Hospitality Studies - Semester 4'],
+    meetingMode: 'HYBRID',
+    date: '2026-11-05',
+    startTime: '10:00 AM',
+    endTime: '01:00 PM',
+    venue: 'Executive Boardroom & Training Kitchen',
+    onlineMeetingUrl: 'https://meet.google.com/test-ptm-col',
+    teacherInCharge: 'Chef Anand Deshpande',
+    teacherPhone: '+91 98221 44556',
+    agenda: ['Kitchen practical assessment review', 'French terminology mastery', 'Attendance records'],
+    notes: 'Chef uniforms required for live mock session.',
+    channels: ['IN_APP', 'WHATSAPP', 'SMS'],
+  };
+
+  const resCreate = await fetch(`${baseUrl}/api/enterprise/parent-meetings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newMeetingPayload),
+  });
+  assert.strictEqual(resCreate.status, 201);
+  const dataCreate = await resCreate.json();
+  assert.ok(dataCreate.meeting.id);
+  assert.strictEqual(dataCreate.meeting.status, 'SCHEDULED');
+  assert.strictEqual(dataCreate.meeting.notificationDispatch.dispatched, true);
+  const createdMeetingId = dataCreate.meeting.id;
+
+  // 5. POST RSVP from parent
+  const rsvpPayload = {
+    studentId: 'stu-hm01',
+    parentName: 'Milind Kulkarni',
+    status: 'ATTENDING',
+    parentRemarks: 'Looking forward to meeting Chef Anand.',
+  };
+  const resRsvp = await fetch(`${baseUrl}/api/enterprise/parent-meetings/${createdMeetingId}/rsvp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(rsvpPayload),
+  });
+  assert.strictEqual(resRsvp.status, 200);
+  const dataRsvp = await resRsvp.json();
+  assert.strictEqual(dataRsvp.rsvp.status, 'ATTENDING');
+  assert.strictEqual(dataRsvp.meetingSummary.totalAttending, 1);
+
+  // 6. POST Notify reminder blast
+  const resNotify = await fetch(`${baseUrl}/api/enterprise/parent-meetings/${createdMeetingId}/notify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reminderType: '1_DAY_BEFORE', channels: ['WHATSAPP', 'SMS'] }),
+  });
+  assert.strictEqual(resNotify.status, 200);
+  const dataNotify = await resNotify.json();
+  assert.ok(dataNotify.notificationDispatch.dispatched);
+
+  // 7. POST Attendance mark
+  const resAtt = await fetch(`${baseUrl}/api/enterprise/parent-meetings/${createdMeetingId}/attendance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId: 'stu-hm01', attended: true, teacherRemarks: 'Parent attended and reviewed kitchen log.' }),
+  });
+  assert.strictEqual(resAtt.status, 200);
+  const dataAtt = await resAtt.json();
+  assert.strictEqual(dataAtt.rsvp.attended, true);
+
+  // 8. PUT /api/enterprise/parent-meetings/:id (Update minutes & status)
+  const resUpdate = await fetch(`${baseUrl}/api/enterprise/parent-meetings/${createdMeetingId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      status: 'COMPLETED',
+      minutesOfMeeting: 'Meeting successfully concluded with 100% participation of invited parents.',
+    }),
+  });
+  assert.strictEqual(resUpdate.status, 200);
+  const dataUpdate = await resUpdate.json();
+  assert.strictEqual(dataUpdate.meeting.status, 'COMPLETED');
+  assert.ok(dataUpdate.meeting.minutesOfMeeting);
+
+  // 9. DELETE /api/enterprise/parent-meetings/:id
+  const resDelete = await fetch(`${baseUrl}/api/enterprise/parent-meetings/${createdMeetingId}`, {
+    method: 'DELETE',
+  });
+  assert.strictEqual(resDelete.status, 200);
+});
+
+
 
 

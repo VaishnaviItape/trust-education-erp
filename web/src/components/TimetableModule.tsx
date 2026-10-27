@@ -8,11 +8,13 @@ import {
   Plus,
   ShieldAlert,
   Sparkles,
+  DoorOpen,
 } from 'lucide-react';
 import { checkTimetableConflicts } from '../utils/domainMath';
+import { ClassTeacherAllocationStudio } from './ClassTeacherAllocationStudio';
 
 export const TimetableModule: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'GRID' | 'LESSON_PLANS'>('GRID');
+  const [activeTab, setActiveTab] = useState<'GRID' | 'LESSON_PLANS' | 'CLASS_TEACHERS'>('GRID');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [clashError, setClashError] = useState<string | null>(null);
 
@@ -172,6 +174,17 @@ export const TimetableModule: React.FC = () => {
         >
           Lesson Plans & Teacher Diaries ({lessonPlans.length})
         </button>
+        <button
+          onClick={() => setActiveTab('CLASS_TEACHERS')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'CLASS_TEACHERS'
+              ? 'bg-orange-50 text-orange-700 border border-orange-200 shadow-2xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+          }`}
+        >
+          <DoorOpen className="w-3.5 h-3.5 text-orange-600" />
+          Class Teacher & Room Allocations
+        </button>
       </div>
 
       {/* TAB 1: WEEKLY TIMETABLE GRID */}
@@ -239,6 +252,13 @@ export const TimetableModule: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* TAB 3: CLASSROOM & CLASS TEACHER ALLOCATION STUDIO */}
+      {activeTab === 'CLASS_TEACHERS' && (
+        <div className="pt-2">
+          <ClassTeacherAllocationStudio />
         </div>
       )}
 

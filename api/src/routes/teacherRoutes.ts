@@ -265,7 +265,7 @@ teacherRouter.get('/notes', (req: Request, res: Response) => {
  *     tags: [Teachers & Chef Instructors]
  */
 teacherRouter.post('/marks', (req: Request, res: Response) => {
-  const { studentId, examOrPracticalName, maxMarks, marksObtained, remarks, grade } = req.body;
+  const { studentId, examOrPracticalName, maxMarks, marksObtained, remarks, grade, subject, rollNo, classOrGrade } = req.body;
 
   if (!studentId || !examOrPracticalName || maxMarks === undefined || marksObtained === undefined) {
     return res.status(400).json({
@@ -295,22 +295,42 @@ teacherRouter.post('/marks', (req: Request, res: Response) => {
       ? 'B'
       : percent >= 50
       ? 'C'
-      : 'D');
+      : percent >= 35
+      ? 'D'
+      : 'F');
+
+  const status = percent >= 35 ? 'PASS' : 'FAIL';
+
+  // Check for existing grade record for this student + exam + subject for seamless reuse/update
+  const existingIdx = gradesData.findIndex(
+    (g) => g.studentId === student.id &&
+           g.examOrPracticalName === examOrPracticalName &&
+           (!subject || g.subject === subject)
+  );
 
   const newGrade: StudentGrade = {
-    id: `grd-${Date.now()}`,
+    id: existingIdx >= 0 ? gradesData[existingIdx].id : `grd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     studentId: student.id,
     studentName: student.name,
+    rollNo: rollNo || student.rollNo,
     branchId: student.branchId,
+    classOrGrade: classOrGrade || student.gradeOrSemester,
     examOrPracticalName,
+    subject: subject || 'General',
     maxMarks: max,
     marksObtained: obtained,
+    percentage: Number(percent.toFixed(1)),
     grade: computedGrade,
-    remarks: remarks || 'Good performance',
+    status,
+    remarks: remarks || (status === 'PASS' ? 'Good performance' : 'Needs improvement'),
     date: new Date().toISOString().split('T')[0],
   };
 
-  gradesData.unshift(newGrade);
+  if (existingIdx >= 0) {
+    gradesData[existingIdx] = newGrade;
+  } else {
+    gradesData.unshift(newGrade);
+  }
 
   res.status(201).json({
     message: 'Marks recorded successfully!',
@@ -320,14 +340,105 @@ teacherRouter.post('/marks', (req: Request, res: Response) => {
 
 /**
  * @swagger
+ * /api/teacher/marks/batch:
+ *   post:
+ *     summary: Bulk Marksheet Submission by Teacher
+ *     description: Submit marks for an entire class roster in a single reusable marksheet operation.
+ *     tags: [Teachers & Chef Instructors]
+ */
+teacherRouter.post('/marks/batch', (req: Request, res: Response) => {
+  const { examOrPracticalName, subject, classOrGrade, maxMarks, passingMarks } = req.body;
+  const records = req.body.records || req.body.entries;
+
+  if (!examOrPracticalName || !records || !Array.isArray(records)) {
+    return res.status(400).json({
+      error: 'Missing mandatory fields: examOrPracticalName and records (or entries) array are required.',
+    });
+  }
+
+  const savedGrades: StudentGrade[] = [];
+  const max = Number(maxMarks) || 100;
+  const pass = Number(passingMarks) || max * 0.35;
+
+  for (const item of records) {
+    if (!item.studentId || item.marksObtained === undefined || item.marksObtained === '') continue;
+
+    const student = studentsData.find((s) => s.id === item.studentId);
+    const studentName = item.studentName || student?.name || 'Student';
+    const branchId = item.branchId || student?.branchId || 'branch-sch-01';
+    const rollNo = item.rollNo || student?.rollNo || '';
+    const classGrade = item.classOrGrade || student?.gradeOrSemester || classOrGrade || '';
+    const obtained = Number(item.marksObtained);
+    const percent = max > 0 ? (obtained / max) * 100 : 0;
+
+    const computedGrade =
+      item.grade ||
+      (percent >= 90
+        ? 'A+'
+        : percent >= 80
+        ? 'A'
+        : percent >= 70
+        ? 'B+'
+        : percent >= 60
+        ? 'B'
+        : percent >= 50
+        ? 'C'
+        : percent >= 35
+        ? 'D'
+        : 'F');
+
+    const status = obtained >= pass ? 'PASS' : 'FAIL';
+
+    const existingIdx = gradesData.findIndex(
+      (g) => g.studentId === item.studentId &&
+             g.examOrPracticalName === examOrPracticalName &&
+             (!subject || g.subject === subject)
+    );
+
+    const gradeRecord: StudentGrade = {
+      id: existingIdx >= 0 ? gradesData[existingIdx].id : `grd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      studentId: item.studentId,
+      studentName,
+      rollNo,
+      branchId,
+      classOrGrade: classGrade,
+      examOrPracticalName,
+      subject: subject || item.subject || 'General',
+      maxMarks: max,
+      marksObtained: obtained,
+      percentage: Number(percent.toFixed(1)),
+      grade: computedGrade,
+      status,
+      remarks: item.remarks || (status === 'PASS' ? 'Good performance' : 'Needs improvement'),
+      date: item.date || new Date().toISOString().split('T')[0],
+    };
+
+    if (existingIdx >= 0) {
+      gradesData[existingIdx] = gradeRecord;
+    } else {
+      gradesData.unshift(gradeRecord);
+    }
+    savedGrades.push(gradeRecord);
+  }
+
+  res.status(201).json({
+    message: `Marksheet for ${subject || examOrPracticalName} saved successfully! ${savedGrades.length} records processed.`,
+    totalSaved: savedGrades.length,
+    savedCount: savedGrades.length,
+    grades: savedGrades,
+  });
+});
+
+/**
+ * @swagger
  * /api/teacher/marks:
  *   get:
  *     summary: View Student Marks & Evaluations
- *     description: Retrieve recorded marks filtered by studentId or branchId.
+ *     description: Retrieve recorded marks filtered by studentId, branchId, exam, subject, or class.
  *     tags: [Teachers & Chef Instructors]
  */
 teacherRouter.get('/marks', (req: Request, res: Response) => {
-  const { studentId, branchId } = req.query;
+  const { studentId, branchId, examOrPracticalName, subject, classOrGrade } = req.query;
   let results = [...gradesData];
 
   if (studentId) {
@@ -336,9 +447,35 @@ teacherRouter.get('/marks', (req: Request, res: Response) => {
   if (branchId) {
     results = results.filter((g) => g.branchId === branchId);
   }
+  if (examOrPracticalName) {
+    results = results.filter((g) => g.examOrPracticalName.toLowerCase().includes(String(examOrPracticalName).toLowerCase()));
+  }
+  if (subject) {
+    results = results.filter((g) => g.subject?.toLowerCase().includes(String(subject).toLowerCase()));
+  }
+  if (classOrGrade) {
+    results = results.filter((g) => g.classOrGrade?.toLowerCase().includes(String(classOrGrade).toLowerCase()));
+  }
 
   res.json({
     total: results.length,
     grades: results,
   });
+});
+
+/**
+ * @swagger
+ * /api/teacher/marks/{id}:
+ *   delete:
+ *     summary: Delete a Mark Record
+ *     tags: [Teachers & Chef Instructors]
+ */
+teacherRouter.delete('/marks/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const index = gradesData.findIndex((g) => g.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Mark record not found.' });
+  }
+  const [deleted] = gradesData.splice(index, 1);
+  res.json({ message: 'Mark record deleted successfully', grade: deleted });
 });

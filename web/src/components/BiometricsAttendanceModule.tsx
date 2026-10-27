@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
 import {
   Fingerprint,
   Wifi,
@@ -98,6 +99,14 @@ export const BiometricsAttendanceModule: React.FC = () => {
     defaultKey: null,
     defaultDirection: 'asc',
   });
+
+  const {
+    currentPage: shiftPage,
+    setCurrentPage: setShiftPage,
+    pageSize: shiftPageSize,
+    setPageSize: setShiftPageSize,
+    paginatedItems: paginatedStaffShifts,
+  } = usePagination(sortedStaffShifts, 10);
 
   // Hostel Nightly Curfew
   const [curfewRecords, setCurfewRecords] = useState([
@@ -225,32 +234,46 @@ export const BiometricsAttendanceModule: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {sortedStaffShifts.map((s, index) => (
-                  <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
-                    <td className="p-3.5">
-                      <div className="font-bold text-slate-900">{s.name}</div>
-                      <div className="text-[10px] text-slate-500">{s.role}</div>
-                    </td>
-                    <td className="p-3.5 font-mono text-emerald-700 font-bold">{s.inTime}</td>
-                    <td className="p-3.5 font-mono text-amber-700 font-bold">{s.outTime}</td>
-                    <td className="p-3.5 font-mono text-slate-700">{s.totalHours}</td>
-                    <td className="p-3.5 text-center">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                          s.isLate
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        }`}
-                      >
-                        {s.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {paginatedStaffShifts.map((s, index) => {
+                  const globalIndex = (shiftPage - 1) * shiftPageSize + index + 1;
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
+                      <td className="p-3.5">
+                        <div className="font-bold text-slate-900">{s.name}</div>
+                        <div className="text-[10px] text-slate-500">{s.role}</div>
+                      </td>
+                      <td className="p-3.5 font-mono text-emerald-700 font-bold">{s.inTime}</td>
+                      <td className="p-3.5 font-mono text-amber-700 font-bold">{s.outTime}</td>
+                      <td className="p-3.5 font-mono text-slate-700">{s.totalHours}</td>
+                      <td className="p-3.5 text-center">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                            s.isLate
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}
+                        >
+                          {s.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             </div>
+
+            {/* Staff Shifts Table Pagination Controls */}
+            <TablePagination
+              currentPage={shiftPage}
+              totalItems={sortedStaffShifts.length}
+              pageSize={shiftPageSize}
+              pageSizeOptions={[5, 10, 25, 50]}
+              onPageChange={setShiftPage}
+              onPageSizeChange={setShiftPageSize}
+              itemName="staff records"
+            />
           </div>
         </div>
       )}

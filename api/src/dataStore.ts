@@ -39,6 +39,12 @@ export interface Student {
   aadhaarNumber?: string;
   aadhaarVerified?: boolean;
   roleTag?: 'STUDENT' | 'PREFECT' | 'INTERN' | 'STAFF' | 'ADMIN';
+  // Marathi / Devanagari Script (मराठी नोंद - Required for statutory LC, Bonafide, GR):
+  nameMarathi?: string;
+  fatherNameMarathi?: string;
+  motherNameMarathi?: string;
+  casteMarathi?: string;
+  placeOfBirthMarathi?: string;
   // Statutory & Historical General Register (GR) Fields for Long-Term Archive (10+ Years)
   grNumber?: string;
   motherName?: string;
@@ -60,6 +66,19 @@ export interface Student {
   conduct?: string;
   reasonForLeaving?: string;
   remarks?: string;
+  // Transfer / Previous School Details (Kaksha Plus 23 Standard):
+  admissionType?: 'Fresh' | 'Transfer' | 'Existing' | 'Lateral' | 'Re-admission' | string;
+  isExistingStudent?: boolean;
+  originalAdmissionYear?: string;
+  previousSchool?: string;
+  standardDivLeft?: string;
+  schoolLeavingDate?: string;
+  lcReceivedDate?: string;
+  migrationUniversity?: string;
+  voluntarySubjectSpecial?: string;
+  previousProgress?: string;
+  previousConduct?: string;
+  previousLcNumber?: string;
   status?: 'ACTIVE' | 'ALUMNI_PASSED' | 'ALUMNI_WITHDRAWN';
   branchName?: string;
   penNumber?: string;
@@ -138,6 +157,18 @@ export interface AdmissionEnquiry {
   targetClassOrCourse: string;
   status: 'NEW' | 'CONTACTED' | 'ADMITTED';
   createdAt: string;
+  parentRelation?: string;
+  altPhone?: string;
+  email?: string;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  dob?: string;
+  previousSchool?: string;
+  city?: string;
+  address?: string;
+  needTransportOrHostel?: boolean;
+  preferredContactTime?: string;
+  notes?: string;
+  counselorNotes?: string;
 }
 
 export interface AttendanceRecord {
@@ -180,11 +211,16 @@ export interface StudentGrade {
   id: string;
   studentId: string;
   studentName: string;
+  rollNo?: string;
   branchId: string;
+  classOrGrade?: string;
   examOrPracticalName: string;
+  subject?: string;
   maxMarks: number;
   marksObtained: number;
+  percentage?: number;
   grade: string;
+  status?: 'PASS' | 'FAIL';
   remarks?: string;
   date: string;
 }
@@ -304,19 +340,35 @@ const getInitialStudents = (): Student[] => [
     admissionNo: 'ADM-2026-000285',
     rollNo: '01',
     name: 'AAFAN ALI A',
+    nameMarathi: 'आफान अली ए',
     gender: 'MALE',
     gradeOrSemester: 'STD 8 - Division A',
     motherName: 'TARANUM',
+    motherNameMarathi: 'तरन्नुम',
     parentName: 'Ali A & Taranum',
     fatherName: 'Ali A',
+    fatherNameMarathi: 'अली ए',
     parentPhone: '+91 98230 11999',
     nationality: 'Indian',
     religion: 'Muslim',
     caste: 'Muslim / General',
+    casteMarathi: 'मुस्लिम (सर्वसाधारण)',
     placeOfBirth: 'Hinjawadi',
+    placeOfBirthMarathi: 'हिंजवडी',
     dob: '2013-07-30',
     dobWords: 'Thirty July Two Thousand Thirteen',
     lastSchoolAttended: 'Zilla Parishad Primary School, Hinjawadi',
+    admissionType: 'Transfer',
+    previousSchool: 'Zilla Parishad Primary School, Hinjawadi',
+    standardDivLeft: 'Std 7 A',
+    schoolLeavingDate: '2026-05-20',
+    lcReceivedDate: '2026-06-05',
+    reasonForLeaving: 'Parent Job Transfer to Solapur Campus',
+    migrationUniversity: 'Maharashtra State Board of Secondary & Higher Secondary Education',
+    voluntarySubjectSpecial: 'General Science & Mathematics',
+    previousProgress: 'Outstanding',
+    previousConduct: 'Exemplary',
+    previousLcNumber: 'LC-HINJ-2026-0182',
     admissionDate: '2026-06-10',
     admissionGrade: 'STD 8',
     academicYear: '2026-2027',
@@ -353,6 +405,7 @@ const getInitialStudents = (): Student[] => [
     placeOfBirth: 'Pune, Maharashtra',
     dob: '2020-03-15',
     dobWords: 'Fifteenth March Two Thousand Twenty',
+    admissionType: 'Fresh',
     lastSchoolAttended: 'Little Angels Play School, Pune',
     admissionDate: '2026-06-10',
     admissionGrade: 'Class 1-A',
@@ -377,16 +430,21 @@ const getInitialStudents = (): Student[] => [
     admissionNo: 'SCH-2026-001',
     rollNo: '7A-01',
     name: 'Aarav Sharma',
+    nameMarathi: 'आरव शर्मा',
     gender: 'MALE',
     gradeOrSemester: 'Class 7-A',
     motherName: 'Anjali Sharma',
+    motherNameMarathi: 'अंजली शर्मा',
     parentName: 'Ramesh Sharma',
     fatherName: 'Ramesh Sharma',
+    fatherNameMarathi: 'रमेश शर्मा',
     parentPhone: '+91 98230 11223',
     nationality: 'Indian',
     religion: 'Hindu',
     caste: 'Brahmin (General)',
+    casteMarathi: 'ब्राह्मण (सर्वसाधारण)',
     placeOfBirth: 'Pune, Maharashtra',
+    placeOfBirthMarathi: 'पुणे, महाराष्ट्र',
     dob: '2014-07-22',
     dobWords: 'Twenty-Second July Two Thousand Fourteen',
     lastSchoolAttended: 'Zilla Parishad Primary School, Haveli',
@@ -413,16 +471,21 @@ const getInitialStudents = (): Student[] => [
     admissionNo: 'SCH-2026-002',
     rollNo: '7A-02',
     name: 'Ananya Patel',
+    nameMarathi: 'अनन्या पटेल',
     gender: 'FEMALE',
     gradeOrSemester: 'Class 7-A',
     motherName: 'Neeta Patel',
+    motherNameMarathi: 'नीता पटेल',
     parentName: 'Bhavesh Patel',
     fatherName: 'Bhavesh Patel',
+    fatherNameMarathi: 'भावेश पटेल',
     parentPhone: '+91 98230 44556',
     nationality: 'Indian',
     religion: 'Hindu',
     caste: 'Patidar / Gujjar (OBC)',
-    placeOfBirth: 'Ahmedabad, Gujarat',
+    casteMarathi: 'पाटीदार (इ.मा.व.)',
+    placeOfBirth: 'Solapur, Maharashtra',
+    placeOfBirthMarathi: 'सोलापूर, महाराष्ट्र',
     dob: '2014-09-18',
     dobWords: 'Eighteenth September Two Thousand Fourteen',
     lastSchoolAttended: 'St. Xavier English Academy, Surat',
@@ -1439,11 +1502,16 @@ const getInitialGrades = (): StudentGrade[] => [
     id: 'grd-01',
     studentId: 'stu-s01',
     studentName: 'Aarav Sharma',
+    rollNo: '7A-01',
     branchId: 'branch-sch-01',
+    classOrGrade: 'Class 7-A',
     examOrPracticalName: 'Mid-Term Examination 2026',
+    subject: 'Science & Thermal Thermodynamics',
     maxMarks: 100,
     marksObtained: 92,
+    percentage: 92.0,
     grade: 'A+',
+    status: 'PASS',
     remarks: 'Outstanding analytical skills in Mathematics & Science',
     date: '2026-10-10',
   },
@@ -1451,11 +1519,16 @@ const getInitialGrades = (): StudentGrade[] => [
     id: 'grd-02',
     studentId: 'stu-hm01',
     studentName: 'Kabir Verma',
+    rollNo: 'HM-101',
     branchId: 'branch-hm-01',
+    classOrGrade: 'B.Sc HM Semester 3',
     examOrPracticalName: 'BTK Practical Assessment - Sauces & Poultry',
+    subject: 'Culinary Fundamentals & Food Chemistry',
     maxMarks: 50,
     marksObtained: 47,
-    grade: 'O (Outstanding)',
+    percentage: 94.0,
+    grade: 'A+',
+    status: 'PASS',
     remarks: 'Flawless sauce consistency and professional plating technique',
     date: '2026-10-14',
   },

@@ -107,7 +107,43 @@ apiRouter.get('/students', (req: Request, res: Response) => {
 });
 
 apiRouter.post('/students/admit', (req: Request, res: Response) => {
-  const { branchId, name, gender, gradeOrSemester, parentName, parentPhone, feeTotal } = req.body;
+  const {
+    branchId,
+    name,
+    nameMarathi,
+    gender,
+    gradeOrSemester,
+    parentName,
+    fatherName,
+    fatherNameMarathi,
+    motherName,
+    motherNameMarathi,
+    caste,
+    casteMarathi,
+    placeOfBirth,
+    placeOfBirthMarathi,
+    parentPhone,
+    feeTotal,
+    grNumber,
+    admissionType,
+    isExistingStudent,
+    originalAdmissionYear,
+    previousSchool,
+    lastSchoolAttended,
+    standardDivLeft,
+    schoolLeavingDate,
+    lcReceivedDate,
+    reasonForLeaving,
+    migrationUniversity,
+    voluntarySubjectSpecial,
+    previousProgress,
+    previousConduct,
+    previousLcNumber,
+    progress,
+    conduct,
+    leavingDate,
+    leavingGrade,
+  } = req.body;
 
   if (!name || !branchId || !gradeOrSemester) {
     return res.status(400).json({ error: 'Missing required admission fields' });
@@ -123,15 +159,43 @@ apiRouter.post('/students/admit', (req: Request, res: Response) => {
     admissionNo: newAdmissionNo,
     rollNo: `${gradeOrSemester.slice(0, 3)}-${studentsData.length + 1}`,
     name,
+    nameMarathi: nameMarathi || undefined,
     gender: gender || 'MALE',
     gradeOrSemester,
     parentName: parentName || 'Guardian',
+    fatherName: fatherName || parentName || undefined,
+    fatherNameMarathi: fatherNameMarathi || undefined,
+    motherName: motherName || undefined,
+    motherNameMarathi: motherNameMarathi || undefined,
+    caste: caste || undefined,
+    casteMarathi: casteMarathi || undefined,
+    placeOfBirth: placeOfBirth || undefined,
+    placeOfBirthMarathi: placeOfBirthMarathi || undefined,
+    grNumber: grNumber || undefined,
     parentPhone: parentPhone || '+91 99999 00000',
     feeTotal: Number(feeTotal) || (isSchool ? 36000 : 75000),
     feePaid: 0,
     feePending: Number(feeTotal) || (isSchool ? 36000 : 75000),
     attendancePercent: 100,
     kycStatus: 'PENDING',
+    admissionType: admissionType || 'Fresh',
+    isExistingStudent: isExistingStudent || false,
+    originalAdmissionYear: originalAdmissionYear || undefined,
+    previousSchool: previousSchool || lastSchoolAttended || undefined,
+    lastSchoolAttended: previousSchool || lastSchoolAttended || undefined,
+    standardDivLeft: standardDivLeft || undefined,
+    schoolLeavingDate: schoolLeavingDate || undefined,
+    lcReceivedDate: lcReceivedDate || undefined,
+    reasonForLeaving: reasonForLeaving || undefined,
+    migrationUniversity: migrationUniversity || undefined,
+    voluntarySubjectSpecial: voluntarySubjectSpecial || undefined,
+    previousProgress: previousProgress || undefined,
+    previousConduct: previousConduct || undefined,
+    previousLcNumber: previousLcNumber || undefined,
+    progress: progress || previousProgress || 'Good',
+    conduct: conduct || previousConduct || 'Good',
+    leavingDate: leavingDate || undefined,
+    leavingGrade: leavingGrade || undefined,
   };
 
   studentsData.unshift(newStudent);
@@ -140,6 +204,37 @@ apiRouter.post('/students/admit', (req: Request, res: Response) => {
   res.status(201).json({
     message: 'Student admission successfully created!',
     student: newStudent,
+  });
+});
+
+// Update Student Record (e.g. Marathi names, father/mother Marathi, place of birth)
+apiRouter.patch('/students/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const student = studentsData.find((s) => s.id === id);
+  if (!student) {
+    return res.status(404).json({ error: 'Student not found' });
+  }
+
+  Object.assign(student, req.body);
+
+  res.json({
+    message: 'Student record updated successfully',
+    student,
+  });
+});
+
+apiRouter.put('/students/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const student = studentsData.find((s) => s.id === id);
+  if (!student) {
+    return res.status(404).json({ error: 'Student not found' });
+  }
+
+  Object.assign(student, req.body);
+
+  res.json({
+    message: 'Student record updated successfully',
+    student,
   });
 });
 

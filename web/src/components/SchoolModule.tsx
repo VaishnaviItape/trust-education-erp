@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Student, FeeReceipt, BusRoute } from '../types';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
 
 interface SchoolModuleProps {
   students: Student[];
@@ -79,6 +80,14 @@ export const SchoolModule: React.FC<SchoolModuleProps> = ({
     defaultKey: null,
     defaultDirection: 'asc',
   });
+
+  const {
+    currentPage: schoolPage,
+    setCurrentPage: setSchoolPage,
+    pageSize: schoolPageSize,
+    setPageSize: setSchoolPageSize,
+    paginatedItems: paginatedSchoolStudents,
+  } = usePagination(sortedSchoolStudents, 10);
 
   const handleCreateAdmission = (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,82 +231,96 @@ export const SchoolModule: React.FC<SchoolModuleProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {sortedSchoolStudents.map((stu, index) => (
-                    <tr key={stu.id} className="hover:bg-orange-50/30 transition-colors">
-                      <td className="py-3.5 px-4 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900">{stu.name}</div>
-                        <div className="text-[11px] text-slate-400">
-                          {stu.admissionNo} &bull; {stu.rollNo}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md font-semibold">
-                          {stu.gradeOrSemester}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div>{stu.parentName}</div>
-                        <div className="text-[11px] text-slate-400">{stu.parentPhone}</div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900">
-                          ₹ {stu.feePaid.toLocaleString()} / ₹ {stu.feeTotal.toLocaleString()}
-                        </div>
-                        {stu.feePending > 0 ? (
-                          <div className="text-[11px] text-rose-600 font-semibold">
-                            Due: ₹ {stu.feePending.toLocaleString()}
+                  {paginatedSchoolStudents.map((stu, index) => {
+                    const globalIndex = (schoolPage - 1) * schoolPageSize + index + 1;
+                    return (
+                      <tr key={stu.id} className="hover:bg-orange-50/30 transition-colors">
+                        <td className="py-3.5 px-4 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900">{stu.name}</div>
+                          <div className="text-[11px] text-slate-400">
+                            {stu.admissionNo} &bull; {stu.rollNo}
                           </div>
-                        ) : (
-                          <div className="text-[11px] text-emerald-600 font-semibold">
-                            Fully Cleared
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md font-semibold">
+                            {stu.gradeOrSemester}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div>{stu.parentName}</div>
+                          <div className="text-[11px] text-slate-400">{stu.parentPhone}</div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900">
+                            ₹ {stu.feePaid.toLocaleString()} / ₹ {stu.feeTotal.toLocaleString()}
                           </div>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-extrabold text-slate-800">
-                          {stu.attendancePercent}%
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                            stu.kycStatus === 'VERIFIED'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {stu.kycStatus}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {onOpenProgression && (
-                            <button
-                              onClick={onOpenProgression}
-                              title="Advance to next standard with pending fee carry forward"
-                              className="bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-700 font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 transition-all text-[11px] inline-flex items-center gap-1"
-                            >
-                              <TrendingUp className="w-3 h-3 text-orange-500" />
-                              Carry Fwd
-                            </button>
+                          {stu.feePending > 0 ? (
+                            <div className="text-[11px] text-rose-600 font-semibold">
+                              Due: ₹ {stu.feePending.toLocaleString()}
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-emerald-600 font-semibold">
+                              Fully Cleared
+                            </div>
                           )}
-                          <button
-                            onClick={() => {
-                              setShowFeeModal(stu);
-                              setFeeAmount(String(stu.feePending > 0 ? stu.feePending : 12000));
-                            }}
-                            className="bg-orange-50 hover:bg-orange-600 hover:text-white text-orange-600 font-bold px-3 py-1.5 rounded-lg border border-orange-200 transition-all text-[11px]"
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-extrabold text-slate-800">
+                            {stu.attendancePercent}%
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                              stu.kycStatus === 'VERIFIED'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}
                           >
-                            Collect Fee
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {stu.kycStatus}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {onOpenProgression && (
+                              <button
+                                onClick={onOpenProgression}
+                                title="Advance to next standard with pending fee carry forward"
+                                className="bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-700 font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 transition-all text-[11px] inline-flex items-center gap-1"
+                              >
+                                <TrendingUp className="w-3 h-3 text-orange-500" />
+                                Carry Fwd
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                setShowFeeModal(stu);
+                                setFeeAmount(String(stu.feePending > 0 ? stu.feePending : 12000));
+                              }}
+                              className="bg-orange-50 hover:bg-orange-600 hover:text-white text-orange-600 font-bold px-3 py-1.5 rounded-lg border border-orange-200 transition-all text-[11px]"
+                            >
+                              Collect Fee
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+
+            {/* School Students Table Pagination Controls */}
+            <TablePagination
+              currentPage={schoolPage}
+              totalItems={sortedSchoolStudents.length}
+              pageSize={schoolPageSize}
+              pageSizeOptions={[5, 10, 25, 50]}
+              onPageChange={setSchoolPage}
+              onPageSizeChange={setSchoolPageSize}
+              itemName="school students"
+            />
           </div>
         </div>
       )}

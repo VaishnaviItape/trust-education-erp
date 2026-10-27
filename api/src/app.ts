@@ -85,6 +85,10 @@ app.get('/verify/doc/:id', (req: Request, res: Response) => {
             <div class="row"><strong>Institution:</strong> <span>${cert.branchName}</span></div>
             <div class="row"><strong>Course / Grade:</strong> <span>${cert.gradeOrCourse}</span></div>
             <div class="row"><strong>Academic Year:</strong> <span>${cert.academicYear}</span></div>
+            ${cert.progress ? `<div class="row"><strong>Progress in Studies:</strong> <span style="font-weight:bold;color:#0F172A;">${cert.progress}</span></div>` : ''}
+            ${cert.conduct ? `<div class="row"><strong>Conduct & Moral Character:</strong> <span style="font-weight:bold;color:#0F172A;">${cert.conduct}</span></div>` : ''}
+            ${cert.leavingDate ? `<div class="row"><strong>Date of Leaving:</strong> <span>${cert.leavingDate}</span></div>` : ''}
+            ${cert.reasonForLeaving ? `<div class="row"><strong>Reason for Leaving:</strong> <span>${cert.reasonForLeaving}</span></div>` : ''}
             ${cert.purpose ? `<div class="row"><strong>Certified Purpose:</strong> <span>${cert.purpose}</span></div>` : ''}
             <div class="row"><strong>Issued Date:</strong> <span>${cert.issueDate}</span></div>
             <div class="row"><strong>Authorized Signer:</strong> <span>${cert.issuedBy}</span></div>

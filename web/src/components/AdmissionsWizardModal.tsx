@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { MasterStore } from '../utils/masterData';
 import { formatDobInWords } from '../utils/documentUtils';
+import { MarathiKeypadInput } from './MarathiKeypadInput';
 
 interface AdmissionsWizardModalProps {
   isOpen: boolean;
@@ -50,10 +51,12 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
     profilePhotoUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150&auto=format&fit=crop&q=80',
     firstName: 'AAFAN ALI',
     lastName: 'A',
+    nameMarathi: 'आफान अली ए',
     gender: 'MALE' as 'MALE' | 'FEMALE' | 'OTHER',
     dob: '2013-07-30',
     dobWords: 'Thirty July Two Thousand Thirteen',
     placeOfBirth: 'Hinjawadi',
+    placeOfBirthMarathi: 'हिंजवडी',
     bloodGroup: 'O+',
     religion: 'Muslim',
     caste: 'Muslim / General',
@@ -77,9 +80,23 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
     saralId: 'SARAL-2725120042',
     hotelSpecialization: '',
 
+    // Transfer & Previous School (Kaksha Plus 23 Standard - Required when admissionType === 'Transfer')
+    previousSchool: '',
+    standardDivLeft: '',
+    schoolLeavingDate: '',
+    lcReceivedDate: '',
+    reasonForLeaving: '',
+    migrationUniversity: '',
+    voluntarySubjectSpecial: '',
+    progress: 'Good',
+    conduct: 'Good',
+    previousLcNumber: '',
+
     // Step 3: Parents & Guardians
     fatherName: 'Ali A',
+    fatherNameMarathi: 'अली ए',
     motherName: 'TARANUM',
+    motherNameMarathi: 'तरन्नुम',
     parentName: 'Ali A & Taranum',
     parentPhone: '+91 98230 11999',
     parentEmail: 'taranum.ali@gmail.com',
@@ -189,10 +206,12 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
       profilePhotoUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150&auto=format&fit=crop&q=80',
       firstName: 'AAFAN ALI',
       lastName: 'A',
+      nameMarathi: 'आफान अली ए',
       gender: 'MALE',
       dob: '2013-07-30',
       dobWords: 'Thirty July Two Thousand Thirteen',
       placeOfBirth: 'Hinjawadi',
+      placeOfBirthMarathi: 'हिंजवडी',
       bloodGroup: 'O+',
       religion: 'Muslim',
       caste: 'Muslim / General',
@@ -207,7 +226,7 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
       division: 'Division A',
       admissionNo: 'ADM-2026-000285',
       rollNo: '01',
-      admissionType: 'Fresh',
+      admissionType: 'Transfer',
       admissionDate: '2026-06-10',
       grNumber: 'GR-2026-000285',
       prnNumber: 'PRN-2026-00285',
@@ -215,8 +234,22 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
       saralId: 'SARAL-2725120042',
       hotelSpecialization: '',
 
+      // Transfer & Previous School Details (Kaksha Plus 23 Standard)
+      previousSchool: 'Zilla Parishad Primary School, Hinjawadi',
+      standardDivLeft: 'Std 7 A',
+      schoolLeavingDate: '2026-05-20',
+      lcReceivedDate: '2026-06-05',
+      reasonForLeaving: 'Parent Job Transfer to Solapur Campus',
+      migrationUniversity: 'Maharashtra State Board of Secondary & Higher Secondary Education',
+      voluntarySubjectSpecial: 'General Science & Mathematics',
+      progress: 'Outstanding',
+      conduct: 'Exemplary',
+      previousLcNumber: 'LC-HINJ-2026-0182',
+
       fatherName: 'Ali A',
+      fatherNameMarathi: 'अली ए',
       motherName: 'TARANUM',
+      motherNameMarathi: 'तरन्नुम',
       parentName: 'Ali A & Taranum',
       parentPhone: '+91 98230 11999',
       parentEmail: 'taranum.ali@gmail.com',
@@ -295,6 +328,7 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
 
     const payload = {
       name: fullName,
+      nameMarathi: formData.nameMarathi,
       firstName: formData.firstName,
       lastName: formData.lastName,
       gender: formData.gender,
@@ -314,7 +348,9 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
       parentPhone: formData.parentPhone,
       parentEmail: formData.parentEmail,
       fatherName: formData.fatherName,
+      fatherNameMarathi: formData.fatherNameMarathi,
       motherName: formData.motherName,
+      motherNameMarathi: formData.motherNameMarathi,
       religion: formData.religion,
       caste: formData.caste,
       subCategory: formData.subCategory,
@@ -322,10 +358,25 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
       bloodGroup: formData.bloodGroup,
       motherTongue: formData.motherTongue,
       placeOfBirth: formData.placeOfBirth,
+      placeOfBirthMarathi: formData.placeOfBirthMarathi,
       nationality: formData.nationality,
       dob: formData.dob,
       dobWords: formData.dobWords,
       profilePhotoUrl: formData.profilePhotoUrl,
+      // Transfer & Previous School Details (Kaksha Plus 23 Standard)
+      previousSchool: formData.previousSchool || undefined,
+      lastSchoolAttended: formData.previousSchool || undefined,
+      standardDivLeft: formData.standardDivLeft || undefined,
+      schoolLeavingDate: formData.schoolLeavingDate || undefined,
+      lcReceivedDate: formData.lcReceivedDate || undefined,
+      reasonForLeaving: formData.reasonForLeaving || undefined,
+      migrationUniversity: formData.migrationUniversity || undefined,
+      voluntarySubjectSpecial: formData.voluntarySubjectSpecial || undefined,
+      previousProgress: formData.progress || undefined,
+      previousConduct: formData.conduct || undefined,
+      progress: formData.progress || 'Good',
+      conduct: formData.conduct || 'Good',
+      previousLcNumber: formData.previousLcNumber || undefined,
       currentAddress: formData.currentAddress,
       permanentAddress: formData.permanentAddress,
       submittedDocuments: formData.documents.filter((d) => d.submitted),
@@ -468,6 +519,37 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
                       className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-orange-500"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Statutory Marathi / Devanagari Candidate Name & Place of Birth */}
+              <div className="p-4 rounded-2xl bg-orange-50/70 border border-orange-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-orange-900 flex items-center gap-1.5">
+                    <span>वैधानिक मराठी नोंद (Statutory Marathi Record - LC & Bonafide)</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-orange-800 bg-orange-100 px-2 py-0.5 rounded-full border border-orange-300">
+                    Phonetic Transliteration & Keypad
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <MarathiKeypadInput
+                    label="विद्यार्थ्याचे नाव (मराठीत - शाळा सोडल्याच्या दाखल्यासाठी) *"
+                    value={formData.nameMarathi || ''}
+                    onChange={(val) => setFormData({ ...formData, nameMarathi: val })}
+                    placeholder="उदा. आफान अली ए..."
+                    helperText="Phonetic transliteration or click ⌨️ for Indian Devanagari Keypad"
+                    quickWords={['पाटील', 'देशमुख', 'शिंदे', 'जाधव', 'पवार', 'कुलकर्णी', 'कदम', 'चव्हाण']}
+                  />
+
+                  <MarathiKeypadInput
+                    label="जन्मस्थळ (मराठीत - जन्म दाखल्यानुसार)"
+                    value={formData.placeOfBirthMarathi || ''}
+                    onChange={(val) => setFormData({ ...formData, placeOfBirthMarathi: val })}
+                    placeholder="उदा. हिंजवडी / पुणे / सोलापूर..."
+                    quickWords={['पुणे', 'सोलापूर', 'मुंबई', 'हिंजवडी', 'पंढरपूर', 'सातारा']}
+                  />
                 </div>
               </div>
 
@@ -684,6 +766,220 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
                 </div>
               </div>
 
+              {/* CONDITIONAL TRANSFER / PREVIOUS SCHOOL SECTION (Kaksha Plus 23 Standard) */}
+              {formData.admissionType === 'Transfer' || formData.admissionType === 'Lateral' ? (
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/90 via-orange-50/40 to-white border-2 border-amber-300 shadow-xs space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-amber-200/80 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                        🏛️
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-amber-950 uppercase tracking-wide">
+                          Previous School & Transfer LC Records (मागील शाळेचा दाखला व तपशील)
+                        </h4>
+                        <p className="text-[10px] text-amber-800">
+                          Kaksha Plus 23 Standard: Mandatory when student transfers from another institution with LC / TC.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                      Transfer Mode Active
+                    </span>
+                  </div>
+
+                  {/* Previous School */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Previous School *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Zilla Parishad High School, Solapur"
+                      value={formData.previousSchool}
+                      onChange={(e) => setFormData({ ...formData, previousSchool: e.target.value })}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  {/* Standard & Div. from which left, School Leaving Date, LC Received Date */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Standard & Div. from which left
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Std 10 A"
+                        value={formData.standardDivLeft}
+                        onChange={(e) => setFormData({ ...formData, standardDivLeft: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        School Leaving Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.schoolLeavingDate}
+                        onChange={(e) => setFormData({ ...formData, schoolLeavingDate: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-amber-500"
+                      />
+                      <span className="text-[9px] text-slate-400">dd-mm-yyyy</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        LC Received Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.lcReceivedDate}
+                        onChange={(e) => setFormData({ ...formData, lcReceivedDate: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-amber-500"
+                      />
+                      <span className="text-[9px] text-slate-400">dd-mm-yyyy</span>
+                    </div>
+                  </div>
+
+                  {/* Reason for Leaving, Migration University, Voluntary Subject Special */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Reason for Leaving
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter reason for leaving"
+                        value={formData.reasonForLeaving}
+                        onChange={(e) => setFormData({ ...formData, reasonForLeaving: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Migration University
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Pune University"
+                        value={formData.migrationUniversity}
+                        onChange={(e) => setFormData({ ...formData, migrationUniversity: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Voluntary Subject Special
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Physics"
+                        value={formData.voluntarySubjectSpecial}
+                        onChange={(e) => setFormData({ ...formData, voluntarySubjectSpecial: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Progress, Conduct, Previous LC Serial No. */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-700">
+                          Progress in Studies
+                        </label>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {['Outstanding', 'Very Good', 'Good', 'Fair'].map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, progress: p })}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all cursor-pointer ${
+                              formData.progress === p
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="e.g. Good"
+                        value={formData.progress}
+                        onChange={(e) => setFormData({ ...formData, progress: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-700">
+                          Conduct & Character
+                        </label>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {['Exemplary', 'Very Good', 'Good', 'Satisfactory'].map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, conduct: c })}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all cursor-pointer ${
+                              formData.conduct === c
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="e.g. Good"
+                        value={formData.conduct}
+                        onChange={(e) => setFormData({ ...formData, conduct: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Previous LC Serial No.
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. LC-2026-0914"
+                        value={formData.previousLcNumber}
+                        onChange={(e) => setFormData({ ...formData, previousLcNumber: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-amber-500 mt-6 sm:mt-5"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* FRESH ADMISSION NOTICE - No previous school details required */
+                <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs text-emerald-900">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <span className="font-bold">Fresh Admission Mode Active:</span> First-time enrollment in institution. Previous school leaving (LC / TC) details are not required.
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-300 shrink-0">
+                    Fresh Scholar
+                  </span>
+                </div>
+              )}
+
               {/* Statutory Registrations: G.R., PRN, PEN, SARAL ID */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                 <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -757,7 +1053,7 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Father's Name</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Father's Name (English)</label>
                   <input
                     type="text"
                     placeholder="Father's Name"
@@ -768,7 +1064,7 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mother's Name *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mother's Name (English) *</label>
                   <input
                     type="text"
                     required
@@ -778,6 +1074,25 @@ export const AdmissionsWizardModal: React.FC<AdmissionsWizardModalProps> = ({
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-orange-500"
                   />
                 </div>
+              </div>
+
+              {/* Marathi Names for Parents */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <MarathiKeypadInput
+                  label="वडिलांचे नाव (मराठीत - दाखल्यासाठी)"
+                  value={formData.fatherNameMarathi || ''}
+                  onChange={(val) => setFormData({ ...formData, fatherNameMarathi: val })}
+                  placeholder="उदा. अली ए..."
+                  quickWords={['सुरेश', 'राजेश', 'सचिन', 'संजय', 'रमेश', 'महेश', 'अमोल']}
+                />
+
+                <MarathiKeypadInput
+                  label="आईचे नाव (मराठीत - दाखल्यासाठी)"
+                  value={formData.motherNameMarathi || ''}
+                  onChange={(val) => setFormData({ ...formData, motherNameMarathi: val })}
+                  placeholder="उदा. तरन्नुम..."
+                  quickWords={['सुनीता', 'अनिता', 'कविता', 'शारदा', 'रेखा', 'लता', 'पूजा']}
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

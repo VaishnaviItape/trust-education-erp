@@ -130,6 +130,15 @@ export const FEATURE_MODULE_REGISTRY: FeatureModuleConfig[] = [
     productionStatus: 'READY_PRODUCTION',
     route: '/dashboard/bus',
   },
+  {
+    id: 'TRIPS',
+    name: 'Educational Trips & Study Tours',
+    category: 'OPERATIONS',
+    description: 'School and college study tours, multi-day itineraries, packing guidelines, teacher escorts, parent digital consent, and mobile push updates.',
+    defaultEnabled: true,
+    productionStatus: 'READY_PRODUCTION',
+    route: '/dashboard/trips',
+  },
 
   // 3. Periodic & Auxiliary Modules
   {

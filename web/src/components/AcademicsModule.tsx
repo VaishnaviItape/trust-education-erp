@@ -12,9 +12,16 @@ import {
   Check,
   X,
   School,
+  FileSpreadsheet,
+  DoorOpen,
+  FileQuestion,
 } from 'lucide-react';
 import { Student, KitchenPracticalBatch, HotelInternship, ChefKitInventory } from '../types';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
+import { ExamMarksheetStudio } from './ExamMarksheetStudio';
+import { ClassTeacherAllocationStudio } from './ClassTeacherAllocationStudio';
+import { QuestionBankPaperStudio } from './QuestionBankPaperStudio';
 
 interface AcademicsModuleProps {
   students: Student[];
@@ -35,14 +42,14 @@ export const AcademicsModule: React.FC<AcademicsModuleProps> = ({
   onChangeBranchScope,
   academicYear = '2026-2027',
 }) => {
-  const [activeView, setActiveView] = useState<'SCHOOL_CLASSES' | 'COLLEGE_LABS' | 'INTERNSHIPS'>(
+  const [activeView, setActiveView] = useState<'SCHOOL_CLASSES' | 'COLLEGE_LABS' | 'INTERNSHIPS' | 'MARKSHEET' | 'CLASS_TEACHERS' | 'QUESTION_BANK'>(
     selectedBranchScope === 'COLLEGE' ? 'COLLEGE_LABS' : 'SCHOOL_CLASSES'
   );
 
   useEffect(() => {
-    if (selectedBranchScope === 'COLLEGE') {
+    if (selectedBranchScope === 'COLLEGE' && activeView !== 'MARKSHEET' && activeView !== 'CLASS_TEACHERS' && activeView !== 'QUESTION_BANK') {
       setActiveView('COLLEGE_LABS');
-    } else if (selectedBranchScope === 'SCHOOL') {
+    } else if (selectedBranchScope === 'SCHOOL' && activeView !== 'MARKSHEET' && activeView !== 'CLASS_TEACHERS' && activeView !== 'QUESTION_BANK') {
       setActiveView('SCHOOL_CLASSES');
     }
   }, [selectedBranchScope]);
@@ -70,6 +77,14 @@ export const AcademicsModule: React.FC<AcademicsModuleProps> = ({
     defaultKey: null,
     defaultDirection: 'asc',
   });
+
+  const {
+    currentPage: attendancePage,
+    setCurrentPage: setAttendancePage,
+    pageSize: attendancePageSize,
+    setPageSize: setAttendancePageSize,
+    paginatedItems: paginatedClassStudents,
+  } = usePagination(sortedClassStudents, 10);
 
   const handleMarkStatus = (studentId: string, status: 'PRESENT' | 'ABSENT' | 'LATE') => {
     setAttendanceState((prev) => ({ ...prev, [studentId]: status }));
@@ -104,42 +119,73 @@ export const AcademicsModule: React.FC<AcademicsModuleProps> = ({
           </p>
         </div>
 
-        {/* View Switcher for Superadmin */}
-        {selectedBranchScope === 'ALL' && (
-          <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
+        {/* View Switcher */}
+        <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200 overflow-x-auto">
+          {selectedBranchScope !== 'COLLEGE' && (
             <button
               onClick={() => setActiveView('SCHOOL_CLASSES')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeView === 'SCHOOL_CLASSES' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600'
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeView === 'SCHOOL_CLASSES' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <School className="w-3.5 h-3.5" />
               School Classes
             </button>
-            <button
-              onClick={() => setActiveView('COLLEGE_LABS')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeView === 'COLLEGE_LABS' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600'
-              }`}
-            >
-              <UtensilsCrossed className="w-3.5 h-3.5" />
-              Kitchen Labs
-            </button>
-            <button
-              onClick={() => setActiveView('INTERNSHIPS')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeView === 'INTERNSHIPS' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600'
-              }`}
-            >
-              <Building className="w-3.5 h-3.5" />
-              Internships
-            </button>
-          </div>
-        )}
+          )}
+          {selectedBranchScope !== 'SCHOOL' && (
+            <>
+              <button
+                onClick={() => setActiveView('COLLEGE_LABS')}
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'COLLEGE_LABS' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <UtensilsCrossed className="w-3.5 h-3.5" />
+                Kitchen Labs
+              </button>
+              <button
+                onClick={() => setActiveView('INTERNSHIPS')}
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeView === 'INTERNSHIPS' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Building className="w-3.5 h-3.5" />
+                Internships
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => setActiveView('MARKSHEET')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              activeView === 'MARKSHEET' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-orange-600" />
+            Exam Mark Sheet
+          </button>
+          <button
+            onClick={() => setActiveView('CLASS_TEACHERS')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              activeView === 'CLASS_TEACHERS' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <DoorOpen className="w-3.5 h-3.5 text-orange-600" />
+            Class Teacher & Rooms
+          </button>
+          <button
+            onClick={() => setActiveView('QUESTION_BANK')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              activeView === 'QUESTION_BANK' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <FileQuestion className="w-3.5 h-3.5 text-orange-600" />
+            Question Bank & Papers
+          </button>
+        </div>
       </div>
 
       {/* 2. SECTION A: SCHOOL RAPID 30-SEC ATTENDANCE */}
-      {(activeView === 'SCHOOL_CLASSES' || selectedBranchScope === 'SCHOOL') && (
+      {activeView === 'SCHOOL_CLASSES' && (
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div>
@@ -193,11 +239,12 @@ export const AcademicsModule: React.FC<AcademicsModuleProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {sortedClassStudents.map((stu, index) => {
+                  {paginatedClassStudents.map((stu, index) => {
                     const currentStatus = attendanceState[stu.id] || 'PRESENT';
+                    const globalIndex = (attendancePage - 1) * attendancePageSize + index + 1;
                     return (
                       <tr key={stu.id} className="hover:bg-slate-50">
-                        <td className="py-3 px-3 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
+                        <td className="py-3 px-3 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
                         <td className="py-3 px-3 font-mono font-bold text-slate-600">{stu.rollNo}</td>
                         <td className="py-3 px-3 font-bold text-slate-900">{stu.name}</td>
                         <td className="py-3 px-3 text-slate-500">{stu.gradeOrSemester}</td>
@@ -245,6 +292,17 @@ export const AcademicsModule: React.FC<AcademicsModuleProps> = ({
               </table>
             </div>
 
+            {/* Attendance Table Pagination Controls */}
+            <TablePagination
+              currentPage={attendancePage}
+              totalItems={sortedClassStudents.length}
+              pageSize={attendancePageSize}
+              pageSizeOptions={[5, 10, 25, 50, 100]}
+              onPageChange={setAttendancePage}
+              onPageSizeChange={setAttendancePageSize}
+              itemName="students"
+            />
+
             <div className="pt-3 flex justify-end">
               <button
                 type="submit"
@@ -259,7 +317,7 @@ export const AcademicsModule: React.FC<AcademicsModuleProps> = ({
       )}
 
       {/* 2. SECTION B: COLLEGE KITCHEN PRACTICAL LABS */}
-      {(activeView === 'COLLEGE_LABS' || selectedBranchScope === 'COLLEGE') && (
+      {activeView === 'COLLEGE_LABS' && (
         <div className="space-y-4">
           <div className="grid md:grid-cols-3 gap-5">
             {kitchenLabs.map((lab) => (
@@ -308,7 +366,7 @@ export const AcademicsModule: React.FC<AcademicsModuleProps> = ({
       )}
 
       {/* 2. SECTION C: COLLEGE INDUSTRIAL TRAINING INTERNSHIPS */}
-      {(activeView === 'INTERNSHIPS' || selectedBranchScope === 'COLLEGE') && (
+      {activeView === 'INTERNSHIPS' && (
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
@@ -358,6 +416,31 @@ export const AcademicsModule: React.FC<AcademicsModuleProps> = ({
             ))}
           </div>
         </div>
+      )}
+
+      {/* 2. SECTION D: TEACHER EXAM MARKSHEET & EVALUATION STUDIO */}
+      {activeView === 'MARKSHEET' && (
+        <ExamMarksheetStudio
+          initialStudents={students}
+          currentBranchScope={selectedBranchScope}
+          academicYear={academicYear}
+        />
+      )}
+
+      {/* 2. SECTION E: CLASS TEACHER & CLASSROOM ALLOCATION STUDIO */}
+      {activeView === 'CLASS_TEACHERS' && (
+        <ClassTeacherAllocationStudio
+          currentBranchScope={selectedBranchScope}
+          academicYear={academicYear}
+        />
+      )}
+
+      {/* 2. SECTION F: MULTI-LINGUAL QUESTION BANK & QUESTION PAPER STUDIO */}
+      {activeView === 'QUESTION_BANK' && (
+        <QuestionBankPaperStudio
+          currentBranchScope={selectedBranchScope}
+          academicYear={academicYear}
+        />
       )}
     </div>
   );

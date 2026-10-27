@@ -16,9 +16,14 @@ import {
   X,
   AlertTriangle,
   Save,
+  IdCard,
 } from 'lucide-react';
 import { calculateMonthlyPayroll } from '../utils/domainMath';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
+import { StaffService } from '../utils/staffData';
+import { IdCardModal } from './IdCardModal';
+import { IdCardData } from './IdCardPreview';
 
 export const HRPayrollModule: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'EMPLOYEES' | 'LEAVES' | 'PAYROLL_BATCH'>('PAYROLL_BATCH');
@@ -27,49 +32,36 @@ export const HRPayrollModule: React.FC = () => {
   const [deletingEmployee, setDeletingEmployee] = useState<any | null>(null);
   const [editingLeave, setEditingLeave] = useState<any | null>(null);
   const [deletingLeave, setDeletingLeave] = useState<any | null>(null);
+  const [selectedIdCardStaff, setSelectedIdCardStaff] = useState<IdCardData | null>(null);
 
   // Employee Directory
-  const [employees, setEmployees] = useState([
-    {
-      id: 'emp-01',
-      code: 'EMP-SCH-001',
-      name: 'Sunita Kulkarni',
-      role: 'School Principal',
-      dept: 'Academics',
-      branch: 'Modern Public School & Jr College Bhose',
-      basic: 45000,
-      hra: 15000,
-      da: 8000,
-      special: 7000,
-      pan: 'ABCDE1234F',
-    },
-    {
-      id: 'emp-02',
-      code: 'EMP-HM-002',
-      name: 'Chef Sanjeev Menon',
-      role: 'Director & Executive Chef',
-      dept: 'Culinary Arts',
-      branch: 'Modern College of HM & Tech Solapur',
-      basic: 60000,
-      hra: 20000,
-      da: 10000,
-      special: 15000,
-      pan: 'FGHIJ5678K',
-    },
-    {
-      id: 'emp-03',
-      code: 'EMP-ACC-003',
-      name: 'Priya Joshi',
-      role: 'Senior Accountant',
-      dept: 'Finance',
-      branch: 'Trust Central Office',
-      basic: 28000,
-      hra: 9000,
-      da: 4000,
-      special: 3000,
-      pan: 'KLMNO9012P',
-    },
-  ]);
+  const [employees, setEmployees] = useState(() => StaffService.getEmployees());
+
+  const employeeToCardData = (emp: any): IdCardData => {
+    const isCollege =
+      (emp.branch && emp.branch.toLowerCase().includes('hotel')) ||
+      (emp.dept && emp.dept.toLowerCase().includes('culinary'));
+
+    return {
+      type: 'STAFF',
+      id: emp.id,
+      name: emp.name,
+      nameMarathi: emp.nameMarathi,
+      photoUrl: emp.profilePhotoUrl,
+      primaryCode: emp.code,
+      secondaryCode: emp.dept,
+      badgeLabel: emp.role,
+      branchName: emp.branch,
+      bloodGroup: emp.bloodGroup || 'O+',
+      dobOrJoinDate: emp.joinDate || '2020-06-01',
+      dobOrJoinLabel: 'DOJ',
+      emergencyPhone: emp.emergencyContact || emp.phone || '+91 98221 00001',
+      validUpto: emp.validUpto || '2028-05-31',
+      address: emp.address || 'Civil Lines, Solapur - 413002',
+      signatoryTitle: isCollege ? 'Director' : 'Principal / Trustee',
+      staffRef: emp,
+    };
+  };
 
   // Leave Applications
   const [leaves, setLeaves] = useState([
@@ -117,6 +109,14 @@ export const HRPayrollModule: React.FC = () => {
     defaultKey: null,
     defaultDirection: 'asc',
   });
+
+  const {
+    currentPage: payrollPage,
+    setCurrentPage: setPayrollPage,
+    pageSize: payrollPageSize,
+    setPageSize: setPayrollPageSize,
+    paginatedItems: paginatedPayroll,
+  } = usePagination(sortedProcessedPayroll, 10);
 
   const totalGrossDisbursed = processedPayroll.reduce((sum, p) => sum + p.earnedGross, 0);
   const totalDeductionsDisbursed = processedPayroll.reduce((sum, p) => sum + p.totalDeductions, 0);
@@ -226,66 +226,80 @@ export const HRPayrollModule: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {sortedProcessedPayroll.map((p, index) => (
-                    <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
-                      <td className="p-3.5">
-                        <div className="font-bold text-slate-900">{p.name}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">{p.code} • {p.role}</div>
-                      </td>
-                      <td className="p-3.5 text-right font-mono font-bold text-slate-900">
-                        ₹{p.earnedGross.toLocaleString()}
-                      </td>
-                      <td className="p-3.5 text-right font-mono text-rose-700">
-                        ₹{p.pfDeduction.toLocaleString()}
-                      </td>
-                      <td className="p-3.5 text-right font-mono text-rose-700">
-                        ₹{p.professionalTax.toLocaleString()}
-                      </td>
-                      <td className="p-3.5 text-right font-mono text-rose-700">
-                        ₹{p.tdsDeduction.toLocaleString()}
-                      </td>
-                      <td className="p-3.5 text-right font-mono font-black text-emerald-700">
-                        ₹{p.netSalary.toLocaleString()}
-                      </td>
-                      <td className="p-3.5 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPayslip(p)}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-[11px] font-bold cursor-pointer transition-colors"
-                          >
-                            <Printer className="w-3 h-3 text-orange-600" /> Payslip
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const emp = employees.find((e) => e.id === p.id);
-                              if (emp) setEditingEmployee({ ...emp });
-                            }}
-                            title="Edit salary components"
-                            className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const emp = employees.find((e) => e.id === p.id);
-                              if (emp) setDeletingEmployee(emp);
-                            }}
-                            title="Delete employee from payroll"
-                            className="p-1 rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {paginatedPayroll.map((p, index) => {
+                    const globalIndex = (payrollPage - 1) * payrollPageSize + index + 1;
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
+                        <td className="p-3.5">
+                          <div className="font-bold text-slate-900">{p.name}</div>
+                          <div className="text-[10px] text-slate-500 font-mono">{p.code} • {p.role}</div>
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-bold text-slate-900">
+                          ₹{p.earnedGross.toLocaleString()}
+                        </td>
+                        <td className="p-3.5 text-right font-mono text-rose-700">
+                          ₹{p.pfDeduction.toLocaleString()}
+                        </td>
+                        <td className="p-3.5 text-right font-mono text-rose-700">
+                          ₹{p.professionalTax.toLocaleString()}
+                        </td>
+                        <td className="p-3.5 text-right font-mono text-rose-700">
+                          ₹{p.tdsDeduction.toLocaleString()}
+                        </td>
+                        <td className="p-3.5 text-right font-mono font-black text-emerald-700">
+                          ₹{p.netSalary.toLocaleString()}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPayslip(p)}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-[11px] font-bold cursor-pointer transition-colors"
+                            >
+                              <Printer className="w-3 h-3 text-orange-600" /> Payslip
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const emp = employees.find((e) => e.id === p.id);
+                                if (emp) setEditingEmployee({ ...emp });
+                              }}
+                              title="Edit salary components"
+                              className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const emp = employees.find((e) => e.id === p.id);
+                                if (emp) setDeletingEmployee(emp);
+                              }}
+                              title="Delete employee from payroll"
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+
+            {/* Payroll Table Pagination Controls */}
+            <TablePagination
+              currentPage={payrollPage}
+              totalItems={sortedProcessedPayroll.length}
+              pageSize={payrollPageSize}
+              pageSizeOptions={[5, 10, 25, 50, 100]}
+              onPageChange={setPayrollPage}
+              onPageSizeChange={setPayrollPageSize}
+              itemName="employees"
+            />
           </div>
         </div>
       )}
@@ -349,6 +363,14 @@ export const HRPayrollModule: React.FC = () => {
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
+                    onClick={() => setSelectedIdCardStaff(employeeToCardData(e))}
+                    className="p-1 rounded-lg text-amber-700 hover:text-white hover:bg-amber-600 border border-amber-200 transition-colors cursor-pointer"
+                    title="Print Staff ID Card"
+                  >
+                    <IdCard className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setEditingEmployee({ ...e })}
                     className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
                     title="Edit Employee"
@@ -365,8 +387,18 @@ export const HRPayrollModule: React.FC = () => {
                   </button>
                 </div>
               </div>
-              <h4 className="text-sm font-bold text-slate-900">{e.name}</h4>
-              <div className="text-xs text-slate-500">{e.role} • {e.dept}</div>
+              <div className="flex items-center gap-3">
+                <img
+                  src={e.profilePhotoUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'}
+                  alt={e.name}
+                  className="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                />
+                <div className="min-w-0">
+                  <h4 className="text-sm font-bold text-slate-900 truncate">{e.name}</h4>
+                  <div className="text-xs text-slate-500 truncate">{e.role}</div>
+                  <div className="text-[11px] text-amber-700 font-semibold truncate">{e.dept}</div>
+                </div>
+              </div>
               <div className="text-xs text-slate-700 font-mono">Basic Salary: ₹{e.basic.toLocaleString()}</div>
               <div className="text-[10px] text-slate-500">PAN: {e.pan}</div>
             </div>
@@ -709,6 +741,18 @@ export const HRPayrollModule: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* Staff ID Card Modal */}
+      {selectedIdCardStaff && (
+        <IdCardModal
+          cardData={selectedIdCardStaff}
+          isOpen={true}
+          onClose={() => setSelectedIdCardStaff(null)}
+          onPhotoUpdated={(empId, newPhotoUrl) => {
+            const updated = StaffService.updateEmployeePhoto(empId, newPhotoUrl);
+            setEmployees(updated);
+          }}
+        />
       )}
     </div>
   );

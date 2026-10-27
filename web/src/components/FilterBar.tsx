@@ -148,17 +148,17 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
       {/* Bottom Row: Quick Filter Pills + Result Counter + Reset Button */}
       {(pills.length > 0 || typeof filteredCount === 'number' || hasActiveFilters) && (
-        <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-          {/* Quick Filter Pill Groups */}
-          <div className="flex items-center gap-4 flex-wrap">
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+          {/* Quick Filter Pill Groups (Horizontal scrollable & wrap protection at 135% font scale) */}
+          <div className="flex items-center gap-4 flex-wrap overflow-x-auto max-w-full pb-1">
             {pills.map((group) => (
-              <div key={group.id} className="flex items-center gap-1.5 flex-wrap">
+              <div key={group.id} className="flex items-center gap-1.5 flex-wrap shrink-0">
                 {group.label && (
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-0.5">
+                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mr-0.5 shrink-0">
                     {group.label}:
                   </span>
                 )}
-                <div className="inline-flex items-center gap-1 bg-slate-100/70 p-0.5 rounded-xl border border-slate-200/60">
+                <div className="inline-flex items-center gap-1 bg-slate-100/70 dark:bg-slate-800/70 p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shrink-0">
                   {group.options.map((opt) => {
                     const isSelected = group.value === opt.value;
                     return (
@@ -166,10 +166,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                         key={opt.value}
                         type="button"
                         onClick={() => group.onChange(opt.value)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
                           isSelected
                             ? 'bg-orange-600 text-white shadow-xs'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                            : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-700'
                         }`}
                       >
                         {opt.icon}
@@ -179,7 +179,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                             className={`text-[10px] px-1 py-0.2 rounded-full ${
                               isSelected
                                 ? 'bg-orange-700/80 text-orange-100'
-                                : 'bg-slate-200 text-slate-600'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                             }`}
                           >
                             {opt.count}

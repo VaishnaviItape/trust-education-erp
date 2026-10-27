@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Student, FeeReceipt } from '../types';
 import { useTableSort, SortableTh } from './TableSort';
+import { TablePagination, usePagination } from './TablePagination';
 
 interface TrustAccountingModuleProps {
   students: Student[];
@@ -115,6 +116,14 @@ export const TrustAccountingModule: React.FC<TrustAccountingModuleProps> = ({
     defaultKey: null,
     defaultDirection: 'desc',
   });
+
+  const {
+    currentPage: voucherPage,
+    setCurrentPage: setVoucherPage,
+    pageSize: voucherPageSize,
+    setPageSize: setVoucherPageSize,
+    paginatedItems: paginatedVouchers,
+  } = usePagination(sortedVouchers, 10);
 
   const handleCreateVoucher = (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,51 +277,65 @@ export const TrustAccountingModule: React.FC<TrustAccountingModuleProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {sortedVouchers.map((v, index) => (
-                    <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{index + 1}</td>
-                      <td className="p-3.5 font-mono text-orange-600 font-bold">{v.no}</td>
-                      <td className="p-3.5">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                          {v.type}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-slate-600">{v.date}</td>
-                      <td className="p-3.5 text-emerald-700 font-semibold">Dr. {v.debit}</td>
-                      <td className="p-3.5 text-amber-700 font-semibold">Cr. {v.credit}</td>
-                      <td className="p-3.5 text-right font-bold text-slate-900 font-mono">
-                        ₹{v.amount.toLocaleString()}
-                      </td>
-                      <td className="p-3.5 text-center">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> BALANCED
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setEditingVoucher({ ...v })}
-                            className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
-                            title="Edit Voucher"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingVoucher(v)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
-                            title="Delete / Void Voucher"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {paginatedVouchers.map((v, index) => {
+                    const globalIndex = (voucherPage - 1) * voucherPageSize + index + 1;
+                    return (
+                      <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3.5 text-center font-bold text-slate-500 font-mono text-xs">{globalIndex}</td>
+                        <td className="p-3.5 font-mono text-orange-600 font-bold">{v.no}</td>
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            {v.type}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-600">{v.date}</td>
+                        <td className="p-3.5 text-emerald-700 font-semibold">Dr. {v.debit}</td>
+                        <td className="p-3.5 text-amber-700 font-semibold">Cr. {v.credit}</td>
+                        <td className="p-3.5 text-right font-bold text-slate-900 font-mono">
+                          ₹{v.amount.toLocaleString()}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> BALANCED
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditingVoucher({ ...v })}
+                              className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer"
+                              title="Edit Voucher"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingVoucher(v)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
+                              title="Delete / Void Voucher"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+
+            {/* Voucher Table Pagination Controls */}
+            <TablePagination
+              currentPage={voucherPage}
+              totalItems={sortedVouchers.length}
+              pageSize={voucherPageSize}
+              pageSizeOptions={[5, 10, 25, 50, 100]}
+              onPageChange={setVoucherPage}
+              onPageSizeChange={setVoucherPageSize}
+              itemName="vouchers"
+            />
           </div>
         </div>
       )}
